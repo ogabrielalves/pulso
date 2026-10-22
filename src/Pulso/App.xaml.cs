@@ -79,6 +79,7 @@ public partial class App : Application
         FpsMonitor.Instance.Start();
         OverlayController.Instance.Start();
         Tray = new TrayIcon();
+        Task.Run(Battery.RecordDaily); // histórico de capacidade da bateria (1 ponto por dia)
 
         if (!minimized) ShowMain();
         int page = Array.IndexOf(args, "--page");
