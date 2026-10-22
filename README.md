@@ -4,7 +4,7 @@ Diagnóstico, monitoramento e teste de hardware para Windows 10 e 11.
 
 ## Executar
 
-`dist\Pulso.exe` é um executável único e portátil: não precisa instalar nem ter .NET na máquina.
+Depois de [compilar](#compilar), `dist\Pulso.exe` é um executável único e portátil: não precisa instalar nem ter .NET na máquina.
 Ao abrir, ele pede permissão de administrador, necessária para temperaturas, SMART, timings da RAM e FPS.
 Se você recusar, ele roda em modo limitado.
 
