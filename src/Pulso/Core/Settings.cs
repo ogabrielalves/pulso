@@ -58,6 +58,8 @@ public sealed class AppSettings
 
     public OverlaySettings Overlay { get; set; } = new();
     public LanSettings Lan { get; set; } = new();
+    /// <summary>IDs do winget que o usuário não quer atualizar.</summary>
+    public List<string> IgnoredUpdates { get; set; } = new();
 
     public string SpeedTestServer { get; set; } = "cloudflare";
     public string PingTarget { get; set; } = "1.1.1.1";
@@ -77,6 +79,7 @@ public static class Settings
         Current.Overlay ??= new();
         Current.Overlay.Items ??= new();
         Current.Lan ??= new();
+        Current.IgnoredUpdates ??= new();
     }
 
     public static void Save()
