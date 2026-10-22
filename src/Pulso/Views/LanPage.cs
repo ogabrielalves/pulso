@@ -194,10 +194,7 @@ public sealed class LanPage : PageBase
     UIElement DeviceRow(LanDevice d, bool first)
     {
         bool open = _open.Contains(d.Mac);
-        var glyph = new TextBlock { Text = LanTypes.Glyph(d.EffectiveType), FontSize = 17, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        glyph.SetResourceReference(TextBlock.FontFamilyProperty, "IconFont");
-        glyph.SetResourceReference(TextBlock.ForegroundProperty, d.Online ? "Accent" : "TextMuted");
-        var icon = new Border { Width = 38, Height = 38, CornerRadius = new CornerRadius(10), Child = glyph, Margin = new Thickness(0, 0, 14, 0), VerticalAlignment = VerticalAlignment.Center }.Res(Border.BackgroundProperty, "Well");
+        var icon = new Border { Width = 38, Height = 38, CornerRadius = new CornerRadius(10), Child = TypeIcon(d.EffectiveType, d.Online ? "Accent" : "TextMuted", 22), Margin = new Thickness(0, 0, 14, 0), VerticalAlignment = VerticalAlignment.Center }.Res(Border.BackgroundProperty, "Well");
 
         var title = new StackPanel { Orientation = Orientation.Horizontal };
         var name = Text(d.DisplayName, 13.5, FontWeights.SemiBold, d.Online ? "Text" : "Text3");
@@ -250,6 +247,18 @@ public sealed class LanPage : PageBase
         return new Border { Child = body, BorderThickness = new Thickness(0, first ? 0 : 1, 0, 0), Padding = new Thickness(0, 11, 0, 11) }.Res(Border.BorderBrushProperty, "Divider");
     }
 
+    /// <summary>Ícone desenhado do tipo de aparelho (mesmo traço dos ícones do menu).</summary>
+    public static Viewbox TypeIcon(string type, string brush, double size)
+    {
+        var path = new System.Windows.Shapes.Path
+        {
+            Data = System.Windows.Media.Geometry.Parse(LanTypes.Icon(type)), Width = 24, Height = 24, StrokeThickness = 1.7,
+            StrokeLineJoin = System.Windows.Media.PenLineJoin.Round, StrokeStartLineCap = System.Windows.Media.PenLineCap.Round, StrokeEndLineCap = System.Windows.Media.PenLineCap.Round,
+        };
+        path.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, brush);
+        return new Viewbox { Width = size, Height = size, Child = path, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+    }
+
     static Border Chip(string text, string brush)
     {
         var t = Text(text, 10, FontWeights.Bold, brush);
@@ -263,7 +272,15 @@ public sealed class LanPage : PageBase
         var nameBox = new TextBox { Text = d.Name ?? "", MinWidth = 240, MaxLength = 60 };
         var type = new ComboBox { MinWidth = 210 };
         type.Items.Add(new ComboBoxItem { Content = Loc.T($"Automático ({LanTypes.Label(d.DetectedType)})", $"Automatic ({LanTypes.Label(d.DetectedType)})"), Tag = null });
-        foreach (var (id, pt, en, _) in LanTypes.All) type.Items.Add(new ComboBoxItem { Content = Loc.T(pt, en), Tag = id });
+        foreach (var (id, pt, en, _) in LanTypes.All)
+        {
+            var item = new StackPanel { Orientation = Orientation.Horizontal };
+            var ic = TypeIcon(id, "Text2", 16);
+            ic.Margin = new Thickness(0, 0, 8, 0);
+            item.Children.Add(ic);
+            item.Children.Add(new TextBlock { Text = Loc.T(pt, en), VerticalAlignment = VerticalAlignment.Center });
+            type.Items.Add(new ComboBoxItem { Content = item, Tag = id });
+        }
         type.SelectedIndex = d.Type == null ? 0 : Math.Max(0, Array.FindIndex(LanTypes.All, t => t.id == d.Type) + 1);
         void Save()
         {

@@ -94,27 +94,31 @@ public sealed record LanNet(string Adapter, string AdapterKind, IPAddress LocalI
     }
 }
 
-/// <summary>Tipos de aparelho: rótulo, ícone (Segoe Fluent Icons) e detecção por nome/fabricante.</summary>
+/// <summary>Tipos de aparelho: rótulo, ícone (traço 24×24 no estilo do menu) e detecção por nome/fabricante.</summary>
 public static class LanTypes
 {
-    public static readonly (string id, string pt, string en, string glyph)[] All =
+    public static readonly (string id, string pt, string en, string icon)[] All =
     {
-        ("router", "Roteador / rede", "Router / network", ""),
-        ("pc", "Computador", "Computer", ""),
-        ("phone", "Celular", "Phone", ""),
-        ("tablet", "Tablet", "Tablet", ""),
-        ("tv", "TV / streaming", "TV / streaming", ""),
-        ("console", "Videogame", "Game console", ""),
-        ("printer", "Impressora", "Printer", ""),
-        ("speaker", "Caixa de som / assistente", "Speaker / assistant", ""),
-        ("camera", "Câmera", "Camera", ""),
-        ("iot", "Casa inteligente", "Smart home", ""),
-        ("watch", "Relógio", "Watch", ""),
-        ("unknown", "Aparelho", "Device", ""),
+        ("router", "Roteador / rede", "Router / network", "M3 14h18v6H3zM7 17h.01M11 17h.01M7 14l-1.5-6M17 14l1.5-6M9.5 7.5a3.5 3.5 0 0 1 5 0M7.5 5a6.5 6.5 0 0 1 9 0"),
+        ("desktop", "PC de mesa", "Desktop PC", "M3 4h18v12H3zM8 20h8M12 16v4"),
+        ("notebook", "Notebook", "Laptop", "M5 5h14v10H5zM2.5 19h19l-2.5-4h-14z"),
+        ("pc", "Computador", "Computer", "M3 4h18v12H3zM8 20h8M12 16v4"),
+        ("iphone", "iPhone", "iPhone", "M12 7.4c-1.1-.6-2.6-.9-3.9 0-2 1.3-2.3 4.4-1.2 7.2.9 2.4 2.3 4.4 3.6 4.4.7 0 1-.4 1.5-.4s.8.4 1.5.4c1.4 0 2.7-2 3.5-4.1-1.4-.6-2.2-1.9-2.1-3.3.1-1.2.8-2.2 1.8-2.7-.8-1-2-1.5-3.1-1.4-.6.1-1.1.4-1.6.6zM12.2 6.6c-.1-1.6.9-3 2.4-3.4.2 1.6-.9 3.1-2.4 3.4z"),
+        ("android", "Celular Android", "Android phone", "M5 18a7 7 0 0 1 14 0zM8.5 11.8L6.8 9M15.5 11.8L17.2 9M9.5 15h.01M14.5 15h.01"),
+        ("phone", "Celular", "Phone", "M7 2.5h10v19H7zM11 18.5h2"),
+        ("tablet", "Tablet", "Tablet", "M4.5 3h15v18h-15zM11 18h2"),
+        ("tv", "TV / streaming", "TV / streaming", "M2.5 7h19v12h-19zM8 21.5h8M9 3l3 3.5 3-3.5"),
+        ("console", "Videogame", "Game console", "M7 8h10a4.5 4.5 0 0 1 4.4 5.4l-.7 3.4a2.3 2.3 0 0 1-4 .9L14.5 15.5h-5l-2.2 2.2a2.3 2.3 0 0 1-4-.9l-.7-3.4A4.5 4.5 0 0 1 7 8zM8 10.5v3.5M6.25 12.25h3.5M15.5 11.5h.01M17.5 13.5h.01"),
+        ("printer", "Impressora", "Printer", "M7 8V3h10v5M7 17H3v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7h-4M7 13h10v8H7z"),
+        ("speaker", "Caixa de som / assistente", "Speaker / assistant", "M6 2.5h12v19H6zM12 14.5m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M12 6.5h.01"),
+        ("camera", "Câmera", "Camera", "M2.5 7h12v10h-12zM14.5 10.5l7-3.5v10l-7-3.5"),
+        ("iot", "Casa inteligente", "Smart home", "M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"),
+        ("watch", "Relógio", "Watch", "M7.5 6.5h9v11h-9zM9 6.5l1-3.5h4l1 3.5M9 17.5l1 3.5h4l1-3.5"),
+        ("unknown", "Aparelho", "Device", "M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0-18 0M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"),
     };
 
     public static string Label(string id) => All.FirstOrDefault(t => t.id == id) is { id: not null } t ? Loc.T(t.pt, t.en) : Loc.T("Aparelho", "Device");
-    public static string Glyph(string id) => All.FirstOrDefault(t => t.id == id).glyph ?? "";
+    public static string Icon(string id) => All.FirstOrDefault(t => t.id == id).icon ?? All[^1].icon;
 
     static readonly (string type, string[] words)[] Rules =
     {
@@ -125,15 +129,19 @@ public static class LanTypes
         ("camera", new[] { "camera", "câmera", "ipcam", "ipc", "hikvision", "intelbras", "dahua", "wyze", "ezviz", "imou", "yi-", "reolink" }),
         ("watch", new[] { "watch", "galaxy fit", "mi band", "amazfit" }),
         ("tablet", new[] { "ipad", "tablet", "galaxy tab", "-tab", "kindle" }),
-        ("phone", new[] { "iphone", "android", "galaxy", "redmi", "poco", "moto", "pixel", "oneplus", "realme", "celular", "phone", "xiaomi", "oppo", "infinix", "motorola" }),
+        ("iphone", new[] { "iphone" }),
+        ("android", new[] { "android", "galaxy", "redmi", "poco", "moto", "pixel", "oneplus", "realme", "xiaomi", "oppo", "infinix", "motorola" }),
+        ("phone", new[] { "celular", "phone" }),
         ("router", new[] { "router", "roteador", "gateway", "tp-link", "tplink", "mercusys", "tenda", "ubiquiti", "mikrotik", "repeater", "repetidor", "extender", "mesh", "deco", "access point", "huawei technologies", "zte", "askey", "sagemcom", "arcadyan", "technicolor", "intelbras wifi" }),
         ("iot", new[] { "espressif", "tuya", "shelly", "sonoff", "smart plug", "tomada", "lamp", "lâmpada", "bulb", "positivo casa", "geonav", "broadlink", "ezviz", "philips hue", "hue" }),
-        ("pc", new[] { "desktop", "laptop", "notebook", "pc-", "-pc", "windows", "macbook", "imac", "mac mini", "dell", "lenovo", "asus", "acer", "msi", "micro-star", "gigabyte", "asrock", "realtek", "intel corporate", "hewlett", "raspberry" }),
+        ("notebook", new[] { "book", "laptop", "notebook", "note-", "nb-" }),
+        ("desktop", new[] { "desktop", "pc-", "-pc", "imac", "mac mini", "gamer" }),
+        ("pc", new[] { "windows", "dell", "lenovo", "asus", "acer", "msi", "micro-star", "gigabyte", "asrock", "realtek", "intel corporate", "hewlett", "raspberry" }),
     };
 
     public static string Guess(LanDevice d)
     {
-        if (d.IsSelf) return "pc";
+        if (d.IsSelf) return Info.CpuInfo.IsLaptop() ? "notebook" : "desktop";
         if (d.IsGateway) return "router";
         // nome anunciado pelo aparelho pesa mais que o fabricante da placa de rede
         foreach (var text in new[] { d.Friendly, d.Model, d.Hostname, d.Vendor })
