@@ -22,6 +22,14 @@ public sealed class OverlaySettings
     public int UpdateMs { get; set; } = 1000;
 }
 
+public sealed class LanSettings
+{
+    /// <summary>Repete a varredura da rede em segundo plano (só depois da primeira varredura manual).</summary>
+    public bool Monitor { get; set; } = true;
+    public int IntervalMin { get; set; } = 5;
+    public bool NotifyNew { get; set; } = true;
+}
+
 public sealed class AppSettings
 {
     public string Language { get; set; } = "pt-BR";
@@ -49,6 +57,7 @@ public sealed class AppSettings
     public double StressGpuLimit { get; set; } = 90;
 
     public OverlaySettings Overlay { get; set; } = new();
+    public LanSettings Lan { get; set; } = new();
 
     public string SpeedTestServer { get; set; } = "cloudflare";
     public string PingTarget { get; set; } = "1.1.1.1";
@@ -67,6 +76,7 @@ public static class Settings
         Current.Alerts ??= new();
         Current.Overlay ??= new();
         Current.Overlay.Items ??= new();
+        Current.Lan ??= new();
     }
 
     public static void Save()

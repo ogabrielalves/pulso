@@ -79,6 +79,7 @@ public partial class App : Application
         FpsMonitor.Instance.Start();
         OverlayController.Instance.Start();
         Tray = new TrayIcon();
+        LanScanner.Start(); // monitoramento da rede (se já houve uma varredura)
         Task.Run(Battery.RecordDaily); // histórico de capacidade da bateria (1 ponto por dia)
 
         if (!minimized) ShowMain();

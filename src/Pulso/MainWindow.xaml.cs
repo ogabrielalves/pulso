@@ -28,8 +28,10 @@ public partial class MainWindow : Window
             SystemSubs.Select(x => ("sistema/" + x.id, x.pt, x.en)).Append(("bateria", "Bateria", "Battery")).ToArray()),
         ("monitorar", "Monitoramento", "Monitoring", "M3 12h4l3-7 4 14 3-7h4", new[]
         {
-            ("monitor", "Sensores", "Sensors"), ("processos", "O que está pesando", "What's heavy"), ("overlay", "Overlay", "Overlay"),
+            ("monitor", "Sensores", "Sensors"), ("processos", "O que está pesando", "What's heavy"),
         }),
+        ("rede", "Aparelhos na rede", "Network devices", "M12 19h.01M8.5 15.5a5 5 0 0 1 7 0M5 12a10 10 0 0 1 14 0M2 8.5a15 15 0 0 1 20 0", null),
+        ("overlay", "Overlay", "Overlay", "M3 5h18v14H3zM13 8h5v4h-5z", null),
         ("testes", "Testes", "Tests", "M12 14l4-4M4 18a8 8 0 1 1 16 0", new[]
         {
             ("bench", "Benchmark", "Benchmark"), ("stress", "Teste de estresse", "Stress test"), ("gargalo", "Detector de gargalo", "Bottleneck detector"), ("internet", "Internet", "Internet"),
@@ -191,6 +193,7 @@ public partial class MainWindow : Window
                 "bateria" => new BatteryPage(),
                 "inicializacao" => new StartupPage(),
                 "reparo" => new MaintenancePage(),
+                "rede" => new LanPage(),
                 "overlay" => new OverlayPage(),
                 _ => new SettingsPage(),
             };
