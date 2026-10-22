@@ -89,10 +89,13 @@ public sealed class BenchmarkPage : PageBase
         {
             var ct = _cts!.Token;
             int threads = Environment.ProcessorCount;
-            var single = await Task.Run(() => CpuBench.Run(1, TimeSpan.FromSeconds(10), new Progress<double>(p => _cpu.Progress(p * 0.5, "Single-core…")), ct));
+            // O Progress precisa nascer na thread da interface (fora do Task.Run) para reportar nela.
+            var singleProg = new Progress<double>(p => _cpu.Progress(p * 0.5, "Single-core…"));
+            var single = await Task.Run(() => CpuBench.Run(1, TimeSpan.FromSeconds(10), singleProg, ct));
             BenchHistory.Session().CpuSingle = single.Score;
             ShowLast();
-            var multi = await Task.Run(() => CpuBench.Run(threads, TimeSpan.FromSeconds(10), new Progress<double>(p => _cpu.Progress(0.5 + p * 0.5, $"Multi-core ({threads} threads)…")), ct));
+            var multiProg = new Progress<double>(p => _cpu.Progress(0.5 + p * 0.5, $"Multi-core ({threads} threads)…"));
+            var multi = await Task.Run(() => CpuBench.Run(threads, TimeSpan.FromSeconds(10), multiProg, ct));
             BenchHistory.Session().CpuMulti = multi.Score;
             End();
         }
@@ -123,7 +126,8 @@ public sealed class BenchmarkPage : PageBase
         if (!Begin(_ram)) return;
         try
         {
-            var r = await Task.Run(() => RamBench.Run(new Progress<(double p, string s)>(x => _ram.Progress(x.p, x.s + "…")), _cts!.Token));
+            var prog = new Progress<(double p, string s)>(x => _ram.Progress(x.p, x.s + "…"));
+            var r = await Task.Run(() => RamBench.Run(prog, _cts!.Token));
             var e = BenchHistory.Session();
             e.RamRead = r.ReadGBs; e.RamWrite = r.WriteGBs; e.RamCopy = r.CopyGBs; e.RamLatency = r.LatencyNs;
             End();
@@ -139,7 +143,8 @@ public sealed class BenchmarkPage : PageBase
         {
             long availMb = (long)((SensorHub.Instance.Last?.Mem.AvailableGB ?? 4) * 1024);
             long mb = Math.Clamp(availMb / 2, 256, 8192);
-            var r = await Task.Run(() => RamBench.ErrorTest(mb, 2, new Progress<(double p, string s)>(x => _ram.Progress(x.p, x.s)), _cts!.Token));
+            var prog = new Progress<(double p, string s)>(x => _ram.Progress(x.p, x.s));
+            var r = await Task.Run(() => RamBench.ErrorTest(mb, 2, prog, _cts!.Token));
             var e = BenchHistory.Session();
             e.RamErrors = r.Errors; e.RamTestedMB = r.TestedMB;
             End();
