@@ -22,6 +22,8 @@ public sealed class DashboardPage : PageBase
     readonly Border _ramWarn = new();
     readonly Stack _disks = new(16);
     readonly TextBlock _diskActLabel = Text("", 12, null, "TextMuted"), _diskAct = Num("—", 12, "Text", FontWeights.Normal);
+    readonly Stack _heavyCpu = new(0), _heavyRam = new(0);
+    int _sampling;
     SystemSummary.Data? _sum;
 
     public DashboardPage(MainWindow main)
@@ -88,11 +90,22 @@ public sealed class DashboardPage : PageBase
         quickDock.Children.Add(quick);
         var quickCard = Card(quickDock);
 
+        // o que está pesando agora
+        var all = Ui.Button(Loc.T("Ver tudo →", "See all →"), () => _main.Navigate("processos"), "LinkButton");
+        var heavyHead = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
+        DockPanel.SetDock(all, Dock.Right);
+        all.VerticalAlignment = VerticalAlignment.Center;
+        heavyHead.Children.Add(all);
+        heavyHead.Children.Add(Text(Loc.T("O que está pesando agora", "What's heavy right now"), 18, FontWeights.Bold));
+        var heavyCard = Card(new Stack(8, heavyHead,
+            Cols(28, new[] { 1.0, 1.0 }, new Stack(4, Label(Loc.T("Mais processador", "Most CPU")), _heavyCpu), new Stack(4, Label(Loc.T("Mais memória", "Most memory")), _heavyRam))));
+
         var content = new Stack(18,
             header,
             _alerts,
             stripCard,
             Cols(18, new[] { 1.0, 1.0 }, _cpu.Root, _gpu.Root),
+            heavyCard,
             Cols(18, new[] { 1.0, 1.15, 0.95 }, ramCard, diskCard, quickCard));
         Content = Scroll(content);
         _ = LoadAsync();
@@ -213,6 +226,8 @@ public sealed class DashboardPage : PageBase
             _ramCache.Text = Loc.T($"Em cache {Fmt.N(cache, 1)} GB", $"Cached {Fmt.N(cache, 1)} GB");
         }
 
+        SampleHeavy(m.TotalGB ?? 0);
+
         var disk = _sysDiskIndex < s.Disks.Count ? s.Disks[_sysDiskIndex] : s.Disks.FirstOrDefault();
         _diskAct.Text = Fmt.Value(disk?.Activity, Unit.Percent);
 
@@ -227,6 +242,49 @@ public sealed class DashboardPage : PageBase
             _alerts.Children.Add(b);
         }
         _alerts.Visibility = _alerts.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Top 5 por CPU e por memória (só CPU/RAM aqui: GPU e rede ficam na tela de processos).</summary>
+    void SampleHeavy(double totalGb)
+    {
+        if (Interlocked.Exchange(ref _sampling, 1) == 1) return;
+        Task.Run(() =>
+        {
+            try { ProcessMonitor.Instance.Sample(); }
+            catch (Exception ex) { Paths.LogError("Dashboard.Heavy", ex); }
+        }).ContinueWith(_ => Dispatcher.BeginInvoke(() =>
+        {
+            Interlocked.Exchange(ref _sampling, 0);
+            if (!Shown) return;
+            var apps = ProcessMonitor.Instance.Apps;
+            if (apps.Count == 0) return;
+            double total = totalGb * 1024 * 1024 * 1024;
+            FillHeavy(_heavyCpu, apps.Where(a => a.Image != "System").OrderByDescending(a => a.Cpu).Take(5), a => Fmt.N(a.Cpu, a.Cpu < 10 ? 1 : 0) + "%", a => a.Cpu >= 40 ? "Crit" : a.Cpu >= 15 ? "Warn" : "Text");
+            FillHeavy(_heavyRam, apps.OrderByDescending(a => a.Ram).Take(5), a => Fmt.Bytes(a.Ram), a => total > 0 && a.Ram / total >= 0.3 ? "Warn" : "Text");
+        }));
+    }
+
+    static void FillHeavy(Stack host, IEnumerable<ProcessMonitor.AppUsage> apps, Func<ProcessMonitor.AppUsage, string> value, Func<ProcessMonitor.AppUsage, string> brush)
+    {
+        int i = 0;
+        foreach (var a in apps)
+        {
+            if (i >= host.Children.Count)
+            {
+                var dock = new DockPanel();
+                var v = Num("", 12.5, "Text", FontWeights.SemiBold);
+                DockPanel.SetDock(v, Dock.Right);
+                dock.Children.Add(v);
+                dock.Children.Add(Text("", 13));
+                host.Children.Add(new Border { Child = dock, BorderThickness = new Thickness(0, i == 0 ? 0 : 1, 0, 0), Padding = new Thickness(0, 7, 0, 7) }.Res(Border.BorderBrushProperty, "Divider"));
+            }
+            var d = (DockPanel)((Border)host.Children[i]).Child;
+            var val = (TextBlock)d.Children[0];
+            val.Text = value(a);
+            val.SetResourceReference(TextBlock.ForegroundProperty, brush(a));
+            ((TextBlock)d.Children[1]).Text = a.Name + (a.Count > 1 ? $" ({a.Count})" : "");
+            i++;
+        }
     }
 
     static Health CpuHealth(Snapshot s)
