@@ -23,6 +23,7 @@ public partial class MainWindow : Window
         ("stress", "Teste de estresse", "Stress test", "M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-6 2 1 3 2 3 4"),
         ("gargalo", "Detector de gargalo", "Bottleneck detector", "M4 5h16l-6 7v6l-4 2v-8z"),
         ("internet", "Internet", "Internet", "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"),
+        ("drivers", "Drivers", "Drivers", "M12 4v10M8 10l4 4 4-4M5 19h14"),
         ("overlay", "Overlay", "Overlay", "M12 4l9 5-9 5-9-5zM3 14l9 5 9-5"),
         ("config", "Configurações", "Settings", "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4"),
     };
@@ -170,6 +171,7 @@ public partial class MainWindow : Window
                 "stress" => new StressPage(),
                 "gargalo" => new BottleneckPage(),
                 "internet" => new InternetPage(),
+                "drivers" => new DriversPage(),
                 "overlay" => new OverlayPage(),
                 _ => new SettingsPage(),
             };
