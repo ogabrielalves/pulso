@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -145,7 +146,72 @@ public sealed class OverlayWindow : Window
     public void KeepOnTop()
     {
         var h = Handle;
-        if (h != 0) Native.SetWindowPos(h, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
+        if (h != 0) Native.SetWindowPos(h, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE | Native.SWP_NOOWNERZORDER | Native.SWP_NOSENDCHANGING);
+    }
+}
+
+/// <summary>
+/// Sem injetar nada no jogo, o overlay só aparece por cima da tela cheia quando o Windows compõe o jogo
+/// (otimizações de tela cheia). Aqui detectamos quando elas estão desligadas para o jogo ou no sistema todo.
+/// </summary>
+public static class FullscreenOptimizations
+{
+    const string LayersPath = @"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers";
+    const string GameConfigPath = @"System\GameConfigStore";
+    const string Flag = "DISABLEDXMAXIMIZEDWINDOWEDMODE";
+
+    static RegistryKey Hklm => RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+
+    /// <summary>Verdadeiro se a tela cheia exclusiva deste jogo vai esconder janelas por cima.</summary>
+    public static bool Blocked(string exePath)
+    {
+        try
+        {
+            foreach (var root in new[] { Registry.CurrentUser, Hklm })
+            {
+                using var k = root.OpenSubKey(LayersPath);
+                if (k?.GetValue(exePath) is string v && v.Contains(Flag, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return GlobalOff();
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Religa as otimizações de tela cheia (vale na próxima vez que o jogo abrir).</summary>
+    public static bool Fix(string exePath)
+    {
+        bool ok = true;
+        foreach (var root in new[] { Registry.CurrentUser, Hklm })
+        {
+            try
+            {
+                using var k = root.OpenSubKey(LayersPath, true);
+                if (k?.GetValue(exePath) is not string v) continue;
+                var rest = v.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(t => !t.Equals(Flag, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (rest.All(t => t is "~" or "$")) k.DeleteValue(exePath, false);
+                else k.SetValue(exePath, string.Join(" ", rest));
+            }
+            catch (Exception ex) { Paths.LogError("Overlay.FixFso", ex); ok = false; }
+        }
+        try
+        {
+            // volta ao padrão do Windows (o próprio Windows decide, com otimizações ligadas)
+            if (GlobalOff())
+            {
+                using var g = Registry.CurrentUser.OpenSubKey(GameConfigPath, true);
+                g?.SetValue("GameDVR_HonorUserFSEBehaviorMode", 0, RegistryValueKind.DWord);
+            }
+        }
+        catch (Exception ex) { Paths.LogError("Overlay.FixFso", ex); ok = false; }
+        return ok;
+    }
+
+    /// <summary>Ajuste "desativar otimizações de tela cheia" aplicado no sistema todo (comum em guias de otimização).</summary>
+    static bool GlobalOff()
+    {
+        using var g = Registry.CurrentUser.OpenSubKey(GameConfigPath);
+        return g?.GetValue("GameDVR_HonorUserFSEBehaviorMode") is int honor && honor == 1
+            && g.GetValue("GameDVR_FSEBehaviorMode") is int mode && mode == 2;
     }
 }
 
@@ -155,15 +221,23 @@ public sealed class OverlayController
     public static OverlayController Instance { get; } = new();
 
     OverlayWindow? _win;
-    DispatcherTimer? _timer;
+    DispatcherTimer? _timer, _zTimer;
     IDisposable? _fps, _demand;
     HwndSource? _hotkeyWnd;
+    nint _fgHook, _restoreHook;
+    Native.WinEventProc? _fgProc; // referência mantida para o GC não coletar o callback
     bool _userHidden;
-    int _tick;
+    uint _checkedPid;
+    string? _checkedPath;
+    bool _checkedBlocked;
     const int HotkeyId = 0x5A51;
 
     public string? CurrentGame { get; private set; }
     public double? CurrentFps { get; private set; }
+    /// <summary>Jogo atual com otimizações de tela cheia desligadas (o overlay não consegue ficar por cima).</summary>
+    public string? BlockedGamePath { get; private set; }
+    /// <summary>Jogo atual está em tela cheia exclusiva.</summary>
+    public bool ExclusiveFullscreen { get; private set; }
     public event Action? StateChanged;
 
     public bool Enabled => Settings.Current.Overlay.Enabled;
@@ -194,16 +268,35 @@ public sealed class OverlayController
             _timer.Tick += (_, _) => Update();
             _timer.Start();
         }
+        // Jogos em tela cheia se colocam no topo ao ganhar foco; reafirmamos nossa posição com frequência (custo desprezível).
+        if (_zTimer == null)
+        {
+            _zTimer = new DispatcherTimer(DispatcherPriority.Normal) { Interval = TimeSpan.FromMilliseconds(250) };
+            _zTimer.Tick += (_, _) => { if (_win is { IsVisible: true }) _win.KeepOnTop(); };
+            _zTimer.Start();
+        }
+        // Ao trocar de janela (alt+tab, jogo voltando do minimizado) reage na hora, sem esperar o próximo ciclo.
+        if (_fgHook == 0)
+        {
+            _fgProc = (_, _, _, _, _, _, _) => Update();
+            _fgHook = Native.SetWinEventHook(Native.EVENT_SYSTEM_FOREGROUND, Native.EVENT_SYSTEM_FOREGROUND, 0, _fgProc, 0, 0, Native.WINEVENT_OUTOFCONTEXT);
+            _restoreHook = Native.SetWinEventHook(Native.EVENT_SYSTEM_MINIMIZEEND, Native.EVENT_SYSTEM_MINIMIZEEND, 0, _fgProc, 0, 0, Native.WINEVENT_OUTOFCONTEXT);
+        }
         Update();
     }
 
     void Deactivate()
     {
+        if (_fgHook != 0) { Native.UnhookWinEvent(_fgHook); _fgHook = 0; }
+        if (_restoreHook != 0) { Native.UnhookWinEvent(_restoreHook); _restoreHook = 0; }
+        _zTimer?.Stop(); _zTimer = null;
         _timer?.Stop(); _timer = null;
         _win?.Close(); _win = null;
         _fps?.Dispose(); _fps = null;
         _demand?.Dispose(); _demand = null;
         CurrentGame = null;
+        BlockedGamePath = null;
+        ExclusiveFullscreen = false;
     }
 
     public void Stop()
@@ -234,6 +327,12 @@ public sealed class OverlayController
         bool isGame = game is { } gv && gv.fps >= 5 && CoversMonitor(fg);
         CurrentGame = isGame ? game!.Value.name : null;
         CurrentFps = isGame ? game!.Value.fps : null;
+        // Mantém o último diagnóstico ao sair do jogo, para o aviso continuar visível na tela do overlay.
+        if (isGame)
+        {
+            ExclusiveFullscreen = Native.SHQueryUserNotificationState(out int qs) == 0 && qs == 3;
+            BlockedGamePath = CheckBlocked((uint)game!.Value.pid);
+        }
         StateChanged?.Invoke();
 
         bool show = !_userHidden && (!o.OnlyInGames || isGame);
@@ -246,7 +345,30 @@ public sealed class OverlayController
         if (!_win.IsVisible) _win.Show();
         _win.UpdateLayout();
         _win.Place(fg);
-        if (++_tick % 2 == 0) _win.KeepOnTop();
+        _win.KeepOnTop();
+    }
+
+    /// <summary>Caminho do jogo se ele estiver com otimizações de tela cheia desligadas (verificado uma vez por processo).</summary>
+    string? CheckBlocked(uint pid)
+    {
+        if (pid != _checkedPid)
+        {
+            _checkedPid = pid;
+            _checkedPath = Native.ProcessPath(pid);
+            _checkedBlocked = _checkedPath != null && FullscreenOptimizations.Blocked(_checkedPath);
+        }
+        return _checkedBlocked ? _checkedPath : null;
+    }
+
+    /// <summary>Religa as otimizações de tela cheia do jogo atual; o jogo precisa ser reiniciado.</summary>
+    public bool FixBlocked()
+    {
+        if (BlockedGamePath is not string path) return false;
+        bool ok = FullscreenOptimizations.Fix(path);
+        _checkedBlocked = FullscreenOptimizations.Blocked(path);
+        BlockedGamePath = _checkedBlocked ? path : null;
+        StateChanged?.Invoke();
+        return ok && !_checkedBlocked;
     }
 
     /// <summary>Janela ocupa (quase) o monitor inteiro: tela cheia ou janela sem bordas.</summary>

@@ -19,6 +19,9 @@ public sealed class OverlayPage : PageBase
     readonly TextBlock _detected = Text("", 11.5, null, "TextMuted");
     readonly Button _hotkey = new();
     readonly Border[] _corners = new Border[4];
+    readonly ContentControl _fsoHint = new() { Focusable = false };
+    string? _fsoShown;
+    bool _fsoFixed;
     bool _capturing;
 
     static OverlaySettings O => Settings.Current.Overlay;
@@ -57,8 +60,8 @@ public sealed class OverlayPage : PageBase
         var host = new Grid();
         host.SizeChanged += (_, e) => screen.Height = e.NewSize.Width * 9 / 16;
         host.Children.Add(screen);
-        var leftCol = new Stack(10, host, Text(Loc.T("O overlay ignora cliques do mouse e não recebe foco, então não interfere no jogo. Funciona em tela cheia sem bordas e em janela; em tela cheia exclusiva alguns jogos podem escondê-lo.",
-                                                  "The overlay ignores mouse clicks and never takes focus, so it doesn't interfere with the game. Works in borderless fullscreen and windowed; some games in exclusive fullscreen may hide it."), 12, null, "TextMuted", wrap: true));
+        var leftCol = new Stack(10, host, _fsoHint, Text(Loc.T("O overlay ignora cliques do mouse e não recebe foco, então não interfere no jogo. Não injeta nada no jogo (seguro com anti-cheat). Em tela cheia exclusiva ele depende das otimizações de tela cheia do Windows estarem ligadas.",
+                                                  "The overlay ignores mouse clicks and never takes focus, so it doesn't interfere with the game. Nothing is injected into the game (anti-cheat safe). In exclusive fullscreen it relies on Windows fullscreen optimizations being on."), 12, null, "TextMuted", wrap: true));
 
         // itens
         var chips = new WrapPanel();
@@ -219,6 +222,29 @@ public sealed class OverlayPage : PageBase
         var oc = OverlayController.Instance;
         _detected.Text = !O.Enabled ? Loc.T("Ative o overlay para detectar jogos", "Turn on the overlay to detect games")
             : FpsMonitor.Instance.Error ?? (oc.CurrentGame != null ? Loc.T($"Detectado agora: {oc.CurrentGame}.exe", $"Detected now: {oc.CurrentGame}.exe") : Loc.T("Nenhum jogo detectado agora", "No game detected right now"));
+        UpdateFsoHint();
+    }
+
+    /// <summary>Aviso quando a tela cheia exclusiva do jogo impede o overlay de aparecer, com correção em um clique.</summary>
+    void UpdateFsoHint()
+    {
+        var oc = OverlayController.Instance;
+        if (oc.BlockedGamePath != null) _fsoFixed = false;
+        string? key = !O.Enabled ? null : _fsoFixed ? "fixed" : oc.BlockedGamePath is string p ? "blocked:" + p : oc.ExclusiveFullscreen ? "exclusive" : null;
+        if (key == _fsoShown) return;
+        _fsoShown = key;
+        if (key == null) { _fsoHint.Content = null; return; }
+        string game = System.IO.Path.GetFileName(oc.BlockedGamePath ?? "");
+        _fsoHint.Content = key switch
+        {
+            "fixed" => Banner(Loc.T("Otimizações de tela cheia religadas. Feche e abra o jogo de novo para o overlay aparecer por cima.",
+                                    "Fullscreen optimizations turned back on. Restart the game for the overlay to show on top."), bigIcon: false),
+            "exclusive" => Banner(Loc.T("O jogo está em tela cheia exclusiva. Se o overlay não aparecer, troque o modo de vídeo do jogo para \"Sem bordas\".",
+                                        "The game is in exclusive fullscreen. If the overlay doesn't show, switch the game's display mode to \"Borderless\"."), bigIcon: false),
+            _ => Banner(Loc.T($"As otimizações de tela cheia estão desligadas para {game}, então o Windows esconde o overlay em tela cheia. Clique aqui para religar.",
+                              $"Fullscreen optimizations are off for {game}, so Windows hides the overlay in fullscreen. Click here to turn them back on."), bigIcon: false, onClick:
+                        () => { _fsoFixed = OverlayController.Instance.FixBlocked(); UpdateFsoHint(); }),
+        };
     }
 
     public override void OnSnapshot(Snapshot s)
