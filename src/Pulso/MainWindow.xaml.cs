@@ -13,32 +13,50 @@ namespace Pulso;
 
 public partial class MainWindow : Window
 {
-    // Ícones do design (traço 1.8, caixa 24×24)
-    static readonly (string id, string pt, string en, string icon)[] Pages =
-    {
-        ("painel", "Painel", "Dashboard", "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"),
-        ("sistema", "Sistema", "System", "M7 7h10v10H7zM9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4"),
-        ("monitor", "Monitoramento", "Monitoring", "M3 12h4l3-7 4 14 3-7h4"),
-        ("bench", "Testes e benchmark", "Tests & benchmark", "M12 14l4-4M4 18a8 8 0 1 1 16 0"),
-        ("stress", "Teste de estresse", "Stress test", "M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-6 2 1 3 2 3 4"),
-        ("gargalo", "Detector de gargalo", "Bottleneck detector", "M4 5h16l-6 7v6l-4 2v-8z"),
-        ("internet", "Internet", "Internet", "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"),
-        ("drivers", "Drivers", "Drivers", "M12 4v10M8 10l4 4 4-4M5 19h14"),
-        ("overlay", "Overlay", "Overlay", "M12 4l9 5-9 5-9-5zM3 14l9 5 9-5"),
-        ("config", "Configurações", "Settings", "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4"),
-    };
-
+    // Precisa vir antes de Menu: campos estáticos são inicializados na ordem em que aparecem.
     public static readonly (string id, string pt, string en)[] SystemSubs =
     {
         ("cpu", "Processador", "Processor"), ("gpu", "Placa de vídeo", "Graphics card"), ("ram", "Memória RAM", "Memory"),
         ("disk", "Armazenamento", "Storage"), ("board", "Placa-mãe", "Motherboard"), ("net", "Rede", "Network"), ("os", "Sistema operacional", "Operating system"),
     };
 
+    // Ícones do design (traço 1.8, caixa 24×24). Itens com subitens viram grupos recolhíveis.
+    static readonly (string id, string pt, string en, string icon, (string key, string pt, string en)[]? subs)[] Menu =
+    {
+        ("painel", "Painel", "Dashboard", "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z", null),
+        ("sistema", "Sistema", "System", "M7 7h10v10H7zM9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4",
+            SystemSubs.Select(x => ("sistema/" + x.id, x.pt, x.en)).Append(("bateria", "Bateria", "Battery")).ToArray()),
+        ("monitorar", "Monitoramento", "Monitoring", "M3 12h4l3-7 4 14 3-7h4", new[]
+        {
+            ("monitor", "Sensores", "Sensors"), ("processos", "O que está pesando", "What's heavy"), ("overlay", "Overlay", "Overlay"),
+        }),
+        ("testes", "Testes", "Tests", "M12 14l4-4M4 18a8 8 0 1 1 16 0", new[]
+        {
+            ("bench", "Benchmark", "Benchmark"), ("stress", "Teste de estresse", "Stress test"), ("gargalo", "Detector de gargalo", "Bottleneck detector"), ("internet", "Internet", "Internet"),
+        }),
+        ("manutencao", "Manutenção", "Maintenance", "M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z", new[]
+        {
+            ("drivers", "Drivers", "Drivers"), ("inicializacao", "Inicialização", "Startup apps"),
+        }),
+        ("config", "Configurações", "Settings", "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4", null),
+    };
+
+    /// <summary>Bateria só em notebook: nobreak USB no PC de mesa também aparece para o Windows como bateria.</summary>
+    static bool ShowBattery => Features.Battery.Present && Info.CpuInfo.IsLaptop();
+
+    sealed class NavGroup
+    {
+        public required ToggleButton Toggle;
+        public required Border Line;
+        public required string[] Keys;
+    }
+
     readonly Dictionary<string, PageBase> _pages = new();
     readonly Dictionary<string, RadioButton> _navButtons = new();
+    readonly List<NavGroup> _groups = new();
+    readonly Dictionary<string, NavGroup> _groupOf = new();
     PageBase? _current;
-    ToggleButton? _sysToggle;
-    StackPanel? _subPanel;
+    string _currentKey = "";
     int _pending;
     readonly DispatcherTimer _selfTimer;
     TimeSpan _lastCpu;
@@ -94,49 +112,48 @@ public partial class MainWindow : Window
 
     void BuildNav()
     {
-        foreach (var (id, pt, en, icon) in Pages)
+        foreach (var (id, pt, en, icon, subs) in Menu)
         {
             var geo = Geometry.Parse(icon);
-            if (id == "sistema")
+            if (subs == null)
             {
-                _sysToggle = new ToggleButton { Content = Loc.T(pt, en), Tag = geo };
-                _sysToggle.SetResourceReference(StyleProperty, "NavParent");
-                _subPanel = new StackPanel { Margin = new Thickness(20, 2, 0, 6), Visibility = Visibility.Collapsed };
-                var line = new Border { BorderThickness = new Thickness(1, 0, 0, 0), Padding = new Thickness(12, 0, 0, 0), Child = _subPanel, Margin = new Thickness(20, 0, 0, 0) };
-                line.SetResourceReference(Border.BorderBrushProperty, "Help");
-                _subPanel.Margin = new Thickness(0, 2, 0, 6);
-                foreach (var (sid, spt, sen) in SystemSubs)
-                {
-                    var r = new RadioButton { Content = Loc.T(spt, sen), GroupName = "nav" };
-                    r.SetResourceReference(StyleProperty, "SubNavItem");
-                    string key = "sistema/" + sid;
-                    r.Checked += (_, _) => Navigate(key);
-                    _navButtons[key] = r;
-                    _subPanel.Children.Add(r);
-                }
-                _sysToggle.Click += (_, _) =>
-                {
-                    bool open = _sysToggle.IsChecked == true;
-                    line.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
-                    _subPanel.Visibility = Visibility.Visible;
-                    if (open && !(_current is SystemPage)) Navigate("sistema/cpu");
-                };
-                line.Visibility = Visibility.Collapsed;
-                Nav.Children.Add(_sysToggle);
-                Nav.Children.Add(line);
-                _subLine = line;
+                var b = new RadioButton { Content = Loc.T(pt, en), Tag = geo, GroupName = "nav" };
+                b.SetResourceReference(StyleProperty, "NavItem");
+                string pid = id;
+                b.Checked += (_, _) => Navigate(pid);
+                _navButtons[id] = b;
+                Nav.Children.Add(b);
                 continue;
             }
-            var b = new RadioButton { Content = Loc.T(pt, en), Tag = geo, GroupName = "nav" };
-            b.SetResourceReference(StyleProperty, "NavItem");
-            string pid = id;
-            b.Checked += (_, _) => Navigate(pid);
-            _navButtons[id] = b;
-            Nav.Children.Add(b);
+
+            var items = subs.Where(x => x.key != "bateria" || ShowBattery).ToArray();
+            var toggle = new ToggleButton { Content = Loc.T(pt, en), Tag = geo };
+            toggle.SetResourceReference(StyleProperty, "NavParent");
+            var panel = new StackPanel { Margin = new Thickness(0, 2, 0, 6) };
+            var line = new Border { BorderThickness = new Thickness(1, 0, 0, 0), Padding = new Thickness(12, 0, 0, 0), Child = panel, Margin = new Thickness(20, 0, 0, 0), Visibility = Visibility.Collapsed };
+            line.SetResourceReference(Border.BorderBrushProperty, "Help");
+            var g = new NavGroup { Toggle = toggle, Line = line, Keys = items.Select(x => x.key).ToArray() };
+            foreach (var (key, spt, sen) in items)
+            {
+                var r = new RadioButton { Content = Loc.T(spt, sen), GroupName = "nav" };
+                r.SetResourceReference(StyleProperty, "SubNavItem");
+                string k = key;
+                r.Checked += (_, _) => Navigate(k);
+                _navButtons[k] = r;
+                _groupOf[k] = g;
+                panel.Children.Add(r);
+            }
+            toggle.Click += (_, _) =>
+            {
+                bool open = toggle.IsChecked == true;
+                line.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+                if (open && !g.Keys.Contains(_currentKey)) Navigate(g.Keys[0]);
+            };
+            _groups.Add(g);
+            Nav.Children.Add(toggle);
+            Nav.Children.Add(line);
         }
     }
-
-    Border? _subLine;
 
     public void Navigate(string key)
     {
@@ -144,20 +161,18 @@ public partial class MainWindow : Window
         string? sub = key.Contains('/') ? key.Split('/')[1] : null;
         if (page == "sistema") sub ??= "cpu";
         string navKey = page == "sistema" ? "sistema/" + sub : page;
+        _currentKey = navKey;
 
         if (_navButtons.TryGetValue(navKey, out var btn) && btn.IsChecked != true) btn.IsChecked = true;
-        bool sys = page == "sistema";
-        if (_sysToggle != null)
+        // Sanfona: abre o grupo da tela atual (cabeçalho em limão) e fecha os outros.
+        _groupOf.TryGetValue(navKey, out var active);
+        foreach (var g in _groups)
         {
-            _sysToggle.Foreground = null;
-            if (sys)
-            {
-                _sysToggle.IsChecked = true;
-                if (_subLine != null) _subLine.Visibility = Visibility.Visible;
-                if (_subPanel != null) _subPanel.Visibility = Visibility.Visible;
-                _sysToggle.SetResourceReference(ForegroundProperty, "Accent");
-            }
-            else _sysToggle.ClearValue(ForegroundProperty);
+            bool on = g == active;
+            g.Toggle.IsChecked = on;
+            g.Line.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            if (on) g.Toggle.SetResourceReference(ForegroundProperty, "Accent");
+            else g.Toggle.ClearValue(ForegroundProperty);
         }
 
         if (!_pages.TryGetValue(page, out var p))
@@ -172,6 +187,9 @@ public partial class MainWindow : Window
                 "gargalo" => new BottleneckPage(),
                 "internet" => new InternetPage(),
                 "drivers" => new DriversPage(),
+                "processos" => new ProcessesPage(),
+                "bateria" => new BatteryPage(),
+                "inicializacao" => new StartupPage(),
                 "overlay" => new OverlayPage(),
                 _ => new SettingsPage(),
             };
