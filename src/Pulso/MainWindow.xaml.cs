@@ -36,7 +36,7 @@ public partial class MainWindow : Window
         }),
         ("manutencao", "Manutenção", "Maintenance", "M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z", new[]
         {
-            ("drivers", "Drivers", "Drivers"), ("inicializacao", "Inicialização", "Startup apps"),
+            ("reparo", "Reparo e limpeza", "Repair & cleanup"), ("drivers", "Drivers", "Drivers"), ("inicializacao", "Inicialização", "Startup apps"),
         }),
         ("config", "Configurações", "Settings", "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4", null),
     };
@@ -190,6 +190,7 @@ public partial class MainWindow : Window
                 "processos" => new ProcessesPage(),
                 "bateria" => new BatteryPage(),
                 "inicializacao" => new StartupPage(),
+                "reparo" => new MaintenancePage(),
                 "overlay" => new OverlayPage(),
                 _ => new SettingsPage(),
             };
