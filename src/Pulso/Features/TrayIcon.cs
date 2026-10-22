@@ -14,8 +14,15 @@ public sealed class TrayIcon : IDisposable
 
     public TrayIcon()
     {
+        // Lê o .ico embutido no tamanho certo para a bandeja (o ícone extraído do .exe vem em 32px e fica borrado).
         Icon? ico = null;
-        try { ico = Icon.ExtractAssociatedIcon(Paths.ExePath); } catch { }
+        try
+        {
+            using var s = System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/Assets/pulso.ico")).Stream;
+            ico = new Icon(s, SystemInformation.SmallIconSize);
+        }
+        catch { }
+        if (ico == null) try { ico = Icon.ExtractAssociatedIcon(Paths.ExePath); } catch { }
         _icon = new NotifyIcon { Icon = ico ?? SystemIcons.Application, Text = "Pulso", Visible = true };
 
         var menu = new ContextMenuStrip { ShowImageMargin = false };

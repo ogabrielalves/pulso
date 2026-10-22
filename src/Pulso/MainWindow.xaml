@@ -90,13 +90,7 @@
                 <Border Background="{DynamicResource Sidebar}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
                     <DockPanel Margin="14,20,14,20">
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,0,8,22">
-                            <Border Width="46" Height="46" CornerRadius="23" Background="{DynamicResource LogoRing}" Padding="4">
-                                <Border CornerRadius="19" Background="{DynamicResource AccentFill}">
-                                    <Viewbox Width="20" Height="20">
-                                        <Path Data="M3 12h4l3-6 4 12 3-6h4" Width="24" Height="24" Stroke="{DynamicResource AccentText}" StrokeThickness="2.6" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                    </Viewbox>
-                                </Border>
-                            </Border>
+                            <Image Source="Assets/logo.png" Width="46" Height="46" RenderOptions.BitmapScalingMode="HighQuality"/>
                             <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
                                 <TextBlock Text="Pulso" FontWeight="ExtraBold" FontSize="17"/>
                                 <TextBlock x:Name="VersionText" FontSize="11" Foreground="{DynamicResource TextMuted}"/>

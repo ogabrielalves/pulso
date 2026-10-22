@@ -42,6 +42,7 @@
 
   <ItemGroup>
     <Resource Include="Assets\pulso.ico" />
+    <Resource Include="Assets\logo.png" />
     <Resource Include="Assets\Fonts\*.ttf" />
   </ItemGroup>
 
