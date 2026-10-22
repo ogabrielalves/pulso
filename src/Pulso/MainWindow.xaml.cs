@@ -80,6 +80,8 @@ public partial class MainWindow : Window
         AdminBadge.ToolTip = Loc.T("Sem administrador o Pulso não lê temperaturas, SMART dos discos nem FPS. Reabra o app e aceite o pedido do Windows.",
                                    "Without administrator rights Pulso cannot read temperatures, disk SMART or FPS. Reopen the app and accept the Windows prompt.");
         BuildNav();
+        // deixa claro que o X não encerra quando "Fechar para a bandeja" está ligado
+        CloseButton.ToolTip = Settings.Current.CloseToTray ? Loc.T("Fechar para a bandeja (o Pulso continua rodando)", "Close to tray (Pulso keeps running)") : Loc.T("Fechar", "Close");
 
         SourceInitialized += (_, _) =>
         {
@@ -317,4 +319,5 @@ public partial class MainWindow : Window
     void Min_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     void Max_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     void Close_Click(object sender, RoutedEventArgs e) => Close();
+    void Quit_Click(object sender, RoutedEventArgs e) => App.Current.Exit();
 }

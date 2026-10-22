@@ -65,9 +65,10 @@
             <Border Background="{DynamicResource TitleBar}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Style="{StaticResource CaptionButton}" Content="&#xE7E8;" Click="Quit_Click" ToolTip="{l:T Encerrar o Pulso, En='Quit Pulso'}" WindowChrome.IsHitTestVisibleInChrome="True"/>
                         <Button Style="{StaticResource CaptionButton}" Content="&#xE921;" Click="Min_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
                         <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Content="&#xE922;" Click="Max_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                        <Button Style="{StaticResource CloseButton}" Content="&#xE8BB;" Click="Close_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                        <Button x:Name="CloseButton" Style="{StaticResource CloseButton}" Content="&#xE8BB;" Click="Close_Click" WindowChrome.IsHitTestVisibleInChrome="True"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
                         <Border Width="14" Height="14" CornerRadius="4" Background="{DynamicResource AccentFill}"/>
