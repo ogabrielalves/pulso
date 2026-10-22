@@ -15,9 +15,9 @@
     <ApplicationIcon>Assets\pulso.ico</ApplicationIcon>
     <Version>1.0.0</Version>
     <Product>Pulso</Product>
-    <Company>Pulso</Company>
+    <Company>ogabrielalves</Company>
     <Description>Pulso - diagnóstico, monitoramento e teste de hardware</Description>
-    <Copyright>Pulso</Copyright>
+    <Copyright>© ogabrielalves</Copyright>
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SatelliteResourceLanguages>pt-BR;en</SatelliteResourceLanguages>
