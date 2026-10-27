@@ -10,8 +10,9 @@ namespace Pulso.Bench;
 /// </summary>
 public static class CpuBench
 {
-    // Fator de escala da pontuação (um núcleo moderno de desktop fica na casa dos 2.000 pontos).
-    const double Scale = 8.0;
+    // Fator de escala da pontuação (um núcleo moderno de desktop fica na casa dos 2.000 pontos;
+    // um P-core de i5-14600KF faz ~9.200 unidades/s → ~2.300).
+    const double Scale = 0.25;
 
     public sealed record Result(double Score, double UnitsPerSec, int Threads);
 

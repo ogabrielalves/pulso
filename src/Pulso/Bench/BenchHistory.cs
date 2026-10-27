@@ -52,6 +52,14 @@ public static class BenchHistory
         Json.Save(File, All);
     }
 
+    /// <summary>Apaga todo o histórico salvo, inclusive a sessão atual.</summary>
+    public static void Clear()
+    {
+        All.Clear();
+        Current = null;
+        Save();
+    }
+
     /// <summary>Último valor anterior à sessão atual (para mostrar a variação).</summary>
     public static double? Previous(Func<BenchEntry, double?> f) => All.Where(e => e != Current).Select(f).FirstOrDefault(v => v != null);
 }

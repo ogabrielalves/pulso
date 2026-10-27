@@ -14,6 +14,7 @@ public sealed class BenchmarkPage : PageBase
     readonly ComboBox _drives = new();
     readonly Grid _history = new();
     readonly TextBox _note = new() { Width = 260 };
+    readonly Button _clear;
     CancellationTokenSource? _cts;
     BenchCard? _running;
 
@@ -43,6 +44,10 @@ public sealed class BenchmarkPage : PageBase
         nl.VerticalAlignment = VerticalAlignment.Center; nl.Margin = new Thickness(0, 0, 10, 0);
         noteRow.Children.Add(nl);
         noteRow.Children.Add(_note);
+        _clear = Ui.Button(Loc.T("Limpar histórico", "Clear history"), ClearHistory);
+        _clear.Padding = new Thickness(14, 8, 14, 8);
+        _clear.Margin = new Thickness(10, 0, 0, 0);
+        noteRow.Children.Add(_clear);
         var hHead = new DockPanel { Margin = new Thickness(0, 0, 0, 12) };
         DockPanel.SetDock(noteRow, Dock.Right);
         hHead.Children.Add(noteRow);
@@ -65,6 +70,7 @@ public sealed class BenchmarkPage : PageBase
         _running = card;
         _cts = new CancellationTokenSource();
         foreach (var c in new[] { _cpu, _gpu, _ram, _disk }) c.SetBusy(c == card);
+        _clear.IsEnabled = false;
         return true;
     }
 
@@ -73,7 +79,20 @@ public sealed class BenchmarkPage : PageBase
         _running?.Done(error);
         _running = null;
         foreach (var c in new[] { _cpu, _gpu, _ram, _disk }) c.SetBusy(false);
+        _clear.IsEnabled = true;
         BenchHistory.Save();
+        ShowLast();
+        RenderHistory();
+    }
+
+    void ClearHistory()
+    {
+        if (_running != null || BenchHistory.All.Count == 0) return;
+        if (MessageBox.Show(Window.GetWindow(this)!, Loc.T("Apagar todos os resultados salvos do histórico de testes? Não dá para desfazer.", "Delete all saved results from the test history? This cannot be undone."),
+                "Pulso", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
+        BenchHistory.Clear();
+        _note.Text = "";
+        foreach (var c in new[] { _cpu, _gpu, _ram, _disk }) c.Reset();
         ShowLast();
         RenderHistory();
     }
@@ -325,6 +344,12 @@ public sealed class BenchmarkPage : PageBase
             x.v.Text = value;
             x.d.Text = delta;
             x.d.SetResourceReference(TextBlock.ForegroundProperty, delta is "" or "=" ? "TextMuted" : good ? "Good" : "Warn");
+        }
+
+        public void Reset()
+        {
+            foreach (var id in _map.Keys) { Set(id, "—", "", true); _map[id].row.ToolTip = null; }
+            Done(null);
         }
 
         public void SetTip(string id, string tip)
