@@ -380,6 +380,6 @@ public sealed class LanPage : PageBase
         if (d.TotalMinutes < 60) return Loc.T($"há {(int)d.TotalMinutes} min", $"{(int)d.TotalMinutes} min ago");
         if (d.TotalHours < 24) return Loc.T($"há {(int)d.TotalHours} h", $"{(int)d.TotalHours} h ago");
         int days = (int)d.TotalDays;
-        return Loc.T(days == 1 ? "há 1 dia" : $"há {days} dias", days == 1 ? "1 day ago" : $"{days} days ago");
+        return days == 1 ? Loc.T("há 1 dia", "1 day ago") : Loc.T($"há {days} dias", $"{days} days ago");
     }
 }

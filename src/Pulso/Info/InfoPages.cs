@@ -13,7 +13,7 @@ namespace Pulso.Info;
 /// <summary>Páginas de Processador, Placa-mãe, Rede e Sistema Operacional.</summary>
 public static class InfoPages
 {
-    static Func<string, string, string> L => Loc.T;
+    static string L(LocText pt, LocText en) => Loc.T(pt, en);
 
     // ======================================================== PROCESSADOR
     static double? _tdp;

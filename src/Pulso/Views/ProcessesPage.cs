@@ -160,7 +160,7 @@ public sealed class ProcessesPage : PageBase
         var (_, failed) = await Task.Run(() => ProcessMonitor.Kill(a));
         if (failed > 0)
             MessageBox.Show(Window.GetWindow(this)!,
-                Loc.T($"{failed} processo(s) não puderam ser finalizados" + (Native.IsAdmin ? "." : " (rode o Pulso como administrador)."), $"{failed} process(es) could not be ended" + (Native.IsAdmin ? "." : " (run Pulso as administrator).")),
+                Loc.T($"{failed} processo(s) não puderam ser finalizados", $"{failed} process(es) could not be ended") + (Native.IsAdmin ? "." : Loc.T(" (rode o Pulso como administrador).", " (run Pulso as administrator).")),
                 "Pulso", MessageBoxButton.OK, MessageBoxImage.Information);
         SensorHub.Instance.Poke();
     }

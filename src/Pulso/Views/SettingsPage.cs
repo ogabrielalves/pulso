@@ -60,7 +60,8 @@ public sealed class SettingsPage : PageBase
         var lang = new ComboBox { MinWidth = 220 };
         lang.Items.Add(new ComboBoxItem { Content = "Português (Brasil)", Tag = "pt-BR" });
         lang.Items.Add(new ComboBoxItem { Content = "English", Tag = "en-US" });
-        lang.SelectedIndex = S.Language == "en-US" ? 1 : 0;
+        lang.Items.Add(new ComboBoxItem { Content = "Русский", Tag = "ru-RU" });
+        lang.SelectedIndex = (int)Loc.ParseLanguage(S.Language) switch { 1 => 1, 2 => 2, _ => 0 };
         lang.SelectionChanged += (_, _) =>
         {
             S.Language = (string)((ComboBoxItem)lang.SelectedItem).Tag;

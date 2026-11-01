@@ -104,7 +104,7 @@ public static class ReportExporter
         string C(Health h) => h switch { Health.Good => "good", Health.Warning => "warn", Health.Critical => "crit", _ => "" };
         var sb = new StringBuilder();
         sb.Append($$$"""
-<!doctype html><html lang="{{{(Loc.En ? "en" : "pt-BR")}}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html><html lang="{{{Loc.Code(Loc.Current)}}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{{E(title)}}}</title>
 <style>
 :root{--bg:#161918;--card:#1f2321;--tile:#262b28;--div:#2a2f2c;--text:#e8ece9;--t3:#9aa39d;--mut:#8a938d;--acc:#c5f36a;--warn:#f2b84b;--crit:#f26b5b}

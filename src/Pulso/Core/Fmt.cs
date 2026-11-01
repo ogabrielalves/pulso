@@ -6,7 +6,7 @@ public enum Unit { None, Percent, Temp, MHz, Watt, Volt, MB, GB, BytesPerSec, Fp
 
 public static class Fmt
 {
-    public static CultureInfo Culture => Loc.En ? CultureInfo.GetCultureInfo("en-US") : CultureInfo.GetCultureInfo("pt-BR");
+    public static CultureInfo Culture => CultureInfo.GetCultureInfo(Loc.Code(Loc.Current));
 
     public static string NA => Loc.T("não disponível", "not available");
     public static string Dash => "—";

@@ -239,6 +239,6 @@ public sealed class CrashesPage : PageBase
         if (d.TotalHours < 1) return Loc.T($"{Math.Max(1, (int)d.TotalMinutes)} min", $"{Math.Max(1, (int)d.TotalMinutes)} min");
         if (d.TotalDays < 1) return Loc.T($"{(int)d.TotalHours} h", $"{(int)d.TotalHours} h");
         int n = (int)d.TotalDays;
-        return Loc.T(n == 1 ? "1 dia" : $"{n} dias", n == 1 ? "1 day" : $"{n} days");
+        return n == 1 ? Loc.T("1 dia", "1 day") : Loc.T($"{n} dias", $"{n} days");
     }
 }
