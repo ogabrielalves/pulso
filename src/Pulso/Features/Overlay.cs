@@ -1,10 +1,9 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Microsoft.Win32;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Threading;
 using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Hardware;
@@ -20,6 +19,9 @@ public static class OverlayItems
         ("temp", "Temperaturas", "Temperatures"), ("ft", "Frametime", "Frametime"), ("low1", "1% mínimo", "1% low"),
         ("vram", "VRAM", "VRAM"), ("clk", "Clock", "Clock"),
     };
+
+    /// <summary>FPS, frametime e 1% usam eventos de quadros do Windows; não existem no Linux.</summary>
+    public static bool Available(string id) => OperatingSystem.IsWindows() || id is not ("fps" or "ft" or "low1");
 
     public static (string key, string value)? Row(string id, Snapshot s)
     {
@@ -41,7 +43,7 @@ public static class OverlayItems
     }
 
     public static IEnumerable<(string key, string value)> Rows(Snapshot s) =>
-        All.Where(a => Settings.Current.Overlay.Items.Contains(a.id)).Select(a => Row(a.id, s)).Where(r => r != null).Select(r => r!.Value);
+        All.Where(a => Available(a.id) && Settings.Current.Overlay.Items.Contains(a.id)).Select(a => Row(a.id, s)).Where(r => r != null).Select(r => r!.Value);
 }
 
 /// <summary>Bloco visual do overlay (usado na janela real e na pré-visualização).</summary>
@@ -70,10 +72,9 @@ public sealed class OverlayPanel : Border
         var o = Settings.Current.Overlay;
         var list = rows.ToList();
         Color valueColor;
-        try { valueColor = (Color)ColorConverter.ConvertFromString(o.TextColor); } catch { valueColor = Colors.White; }
+        try { valueColor = Color.Parse(o.TextColor); } catch { valueColor = Colors.White; }
         var keyBrush = new SolidColorBrush(Color.FromRgb(0xC5, 0xF3, 0x6A));
         var valBrush = new SolidColorBrush(valueColor);
-        keyBrush.Freeze(); valBrush.Freeze();
         while (_grid.RowDefinitions.Count < list.Count) _grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         while (_grid.RowDefinitions.Count > list.Count) _grid.RowDefinitions.RemoveAt(_grid.RowDefinitions.Count - 1);
         while (_grid.Children.Count < list.Count * 2)
@@ -98,53 +99,69 @@ public sealed class OverlayPanel : Border
     }
 }
 
-/// <summary>Janela transparente sempre no topo que ignora o mouse e nunca recebe foco.</summary>
+/// <summary>Janela transparente sempre no topo que ignora o mouse e nunca recebe foco (Windows).</summary>
 public sealed class OverlayWindow : Window
 {
     public readonly OverlayPanel Panel = new();
 
     public OverlayWindow()
     {
-        WindowStyle = WindowStyle.None;
-        AllowsTransparency = true;
+        SystemDecorations = SystemDecorations.None;
+        TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
         Background = Brushes.Transparent;
         Topmost = true;
         ShowInTaskbar = false;
         ShowActivated = false;
         Focusable = false;
         IsHitTestVisible = false;
-        ResizeMode = ResizeMode.NoResize;
+        CanResize = false;
         SizeToContent = SizeToContent.WidthAndHeight;
         Content = Panel;
         Title = "Pulso Overlay";
-        SourceInitialized += (_, _) =>
+        Opened += (_, _) =>
         {
-            var h = new WindowInteropHelper(this).Handle;
+            var h = Handle;
+            if (h == 0) return;
+            if (!OperatingSystem.IsWindows()) { Platform.Linux.X11.MakeClickThrough(h); return; }
             nint ex = Native.GetWindowLongPtr(h, Native.GWL_EXSTYLE);
             Native.SetWindowLongPtr(h, Native.GWL_EXSTYLE, ex | Native.WS_EX_TRANSPARENT | Native.WS_EX_LAYERED | Native.WS_EX_TOOLWINDOW | Native.WS_EX_NOACTIVATE | Native.WS_EX_TOPMOST);
         };
     }
 
-    public nint Handle => new WindowInteropHelper(this).Handle;
+    public nint Handle => TryGetPlatformHandle()?.Handle ?? 0;
 
     /// <summary>Encosta no canto escolhido do monitor onde está o jogo.</summary>
     public void Place(nint gameWindow)
     {
         var o = Settings.Current.Overlay;
+        if (!OperatingSystem.IsWindows()) { PlaceLinux(o); return; }
         nint mon = Native.MonitorFromWindow(gameWindow != 0 ? gameWindow : Handle, 2 /*NEAREST*/);
         var mi = new Native.MONITORINFO { cbSize = System.Runtime.InteropServices.Marshal.SizeOf<Native.MONITORINFO>() };
         if (!Native.GetMonitorInfo(mon, ref mi)) return;
-        var dpi = VisualTreeHelper.GetDpi(this);
-        double sx = dpi.DpiScaleX, sy = dpi.DpiScaleY;
-        double l = mi.rcMonitor.Left / sx, t = mi.rcMonitor.Top / sy, r = mi.rcMonitor.Right / sx, b = mi.rcMonitor.Bottom / sy;
-        const double m = 16;
-        double w = ActualWidth, h = ActualHeight;
-        Left = o.Corner is OverlayCorner.TopLeft or OverlayCorner.BottomLeft ? l + m : r - w - m;
-        Top = o.Corner is OverlayCorner.TopLeft or OverlayCorner.TopRight ? t + m : b - h - m;
+        double scale = RenderScaling;
+        int m = (int)Math.Round(16 * scale);
+        int w = (int)Math.Round(Bounds.Width * scale), h = (int)Math.Round(Bounds.Height * scale);
+        int x = o.Corner is OverlayCorner.TopLeft or OverlayCorner.BottomLeft ? mi.rcMonitor.Left + m : mi.rcMonitor.Right - w - m;
+        int y = o.Corner is OverlayCorner.TopLeft or OverlayCorner.TopRight ? mi.rcMonitor.Top + m : mi.rcMonitor.Bottom - h - m;
+        Position = new PixelPoint(x, y);
+    }
+
+    void PlaceLinux(OverlaySettings o)
+    {
+        var scr = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+        if (scr == null) return;
+        var b = scr.Bounds;
+        double scale = RenderScaling;
+        int m = (int)Math.Round(16 * scale);
+        int w = (int)Math.Round(Bounds.Width * scale), h = (int)Math.Round(Bounds.Height * scale);
+        int x = o.Corner is OverlayCorner.TopLeft or OverlayCorner.BottomLeft ? b.X + m : b.Right - w - m;
+        int y = o.Corner is OverlayCorner.TopLeft or OverlayCorner.TopRight ? b.Y + m : b.Bottom - h - m;
+        Position = new PixelPoint(x, y);
     }
 
     public void KeepOnTop()
     {
+        if (!OperatingSystem.IsWindows()) return; // no X11 o Topmost da janela já cuida disso
         var h = Handle;
         if (h != 0) Native.SetWindowPos(h, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE | Native.SWP_NOOWNERZORDER | Native.SWP_NOSENDCHANGING);
     }
@@ -223,7 +240,7 @@ public sealed class OverlayController
     OverlayWindow? _win;
     DispatcherTimer? _timer, _zTimer;
     IDisposable? _fps, _demand;
-    HwndSource? _hotkeyWnd;
+    IHotkey? _hotkey;
     nint _fgHook, _restoreHook;
     Native.WinEventProc? _fgProc; // referência mantida para o GC não coletar o callback
     bool _userHidden;
@@ -259,7 +276,7 @@ public sealed class OverlayController
     void Activate()
     {
         _userHidden = false;
-        _fps ??= FpsMonitor.Instance.Acquire();
+        if (OperatingSystem.IsWindows()) _fps ??= FpsMonitor.Instance.Acquire();
         _demand ??= SensorHub.Instance.Demand();
         _win ??= new OverlayWindow();
         if (_timer == null)
@@ -276,7 +293,7 @@ public sealed class OverlayController
             _zTimer.Start();
         }
         // Ao trocar de janela (alt+tab, jogo voltando do minimizado) reage na hora, sem esperar o próximo ciclo.
-        if (_fgHook == 0)
+        if (_fgHook == 0 && OperatingSystem.IsWindows())
         {
             _fgProc = (_, _, _, _, _, _, _) => Update();
             _fgHook = Native.SetWinEventHook(Native.EVENT_SYSTEM_FOREGROUND, Native.EVENT_SYSTEM_FOREGROUND, 0, _fgProc, 0, 0, Native.WINEVENT_OUTOFCONTEXT);
@@ -302,12 +319,8 @@ public sealed class OverlayController
     public void Stop()
     {
         Deactivate();
-        if (_hotkeyWnd != null)
-        {
-            Native.UnregisterHotKey(_hotkeyWnd.Handle, HotkeyId);
-            _hotkeyWnd.Dispose();
-            _hotkeyWnd = null;
-        }
+        _hotkey?.Dispose();
+        _hotkey = null;
     }
 
     /// <summary>Aplica mudanças de aparência imediatamente.</summary>
@@ -322,8 +335,9 @@ public sealed class OverlayController
     {
         if (_win == null) return;
         var o = Settings.Current.Overlay;
-        var game = FpsMonitor.Instance.Foreground();
-        nint fg = Native.GetForegroundWindow();
+        bool win = OperatingSystem.IsWindows();
+        var game = win ? FpsMonitor.Instance.Foreground() : null;
+        nint fg = win ? Native.GetForegroundWindow() : 0;
         bool isGame = game is { } gv && gv.fps >= 5 && CoversMonitor(fg);
         CurrentGame = isGame ? game!.Value.name : null;
         CurrentFps = isGame ? game!.Value.fps : null;
@@ -335,7 +349,7 @@ public sealed class OverlayController
         }
         StateChanged?.Invoke();
 
-        bool show = !_userHidden && (!o.OnlyInGames || isGame);
+        bool show = !_userHidden && (!o.OnlyInGames || isGame || !win); // sem detecção de jogo no Linux: fica sempre visível
         if (!show)
         {
             if (_win.IsVisible) _win.Hide();
@@ -401,7 +415,7 @@ public sealed class OverlayController
                 case "alt": mods |= 0x1; break;
                 case "win": mods |= 0x8; break;
                 default:
-                    if (Enum.TryParse<Key>(raw, true, out var k)) vk = (uint)KeyInterop.VirtualKeyFromKey(k);
+                    if (Enum.TryParse<Key>(raw, true, out var k) && VirtualKey(k) is uint v) vk = v;
                     else if (raw.Length == 1) vk = char.ToUpperInvariant(raw[0]);
                     break;
             }
@@ -409,32 +423,112 @@ public sealed class OverlayController
         return vk != 0;
     }
 
+    /// <summary>Tecla do Avalonia → código virtual do Windows (os valores usados em atalhos).</summary>
+    public static uint? VirtualKey(Key k)
+    {
+        if (k >= Key.A && k <= Key.Z) return (uint)('A' + (k - Key.A));
+        if (k >= Key.D0 && k <= Key.D9) return (uint)('0' + (k - Key.D0));
+        if (k >= Key.F1 && k <= Key.F24) return (uint)(0x70 + (k - Key.F1));
+        if (k >= Key.NumPad0 && k <= Key.NumPad9) return (uint)(0x60 + (k - Key.NumPad0));
+        return k switch
+        {
+            Key.Space => 0x20, Key.Tab => 0x09, Key.Return => 0x0D, Key.Escape => 0x1B, Key.Back => 0x08,
+            Key.Insert => 0x2D, Key.Delete => 0x2E, Key.Home => 0x24, Key.End => 0x23, Key.PageUp => 0x21, Key.PageDown => 0x22,
+            Key.Left => 0x25, Key.Up => 0x26, Key.Right => 0x27, Key.Down => 0x28, Key.Pause => 0x13, Key.PrintScreen => 0x2C,
+            Key.OemTilde => 0xC0, Key.OemMinus => 0xBD, Key.OemPlus => 0xBB, Key.OemComma => 0xBC, Key.OemPeriod => 0xBE,
+            _ => null,
+        };
+    }
+
     public bool RegisterHotkey()
     {
         try
         {
-            if (_hotkeyWnd == null)
-            {
-                var p = new HwndSourceParameters("PulsoHotkey") { ParentWindow = new IntPtr(-3), WindowStyle = 0 };
-                _hotkeyWnd = new HwndSource(p);
-                _hotkeyWnd.AddHook(WndProc);
-            }
-            Native.UnregisterHotKey(_hotkeyWnd.Handle, HotkeyId);
-            if (!TryParseHotkey(Settings.Current.Overlay.Hotkey, out uint mods, out uint vk)) return false;
-            return Native.RegisterHotKey(_hotkeyWnd.Handle, HotkeyId, mods | 0x4000 /*NOREPEAT*/, vk);
+            _hotkey ??= OperatingSystem.IsWindows()
+                ? new HotkeyThread(HotkeyId, () => Dispatcher.UIThread.Post(OnHotkey))
+                : new Platform.Linux.X11Hotkey(() => Dispatcher.UIThread.Post(OnHotkey));
+            if (!TryParseHotkey(Settings.Current.Overlay.Hotkey, out uint mods, out uint vk)) { _hotkey.Unregister(); return false; }
+            return _hotkey.Register(mods | 0x4000 /*NOREPEAT*/, vk);
         }
         catch (Exception ex) { Paths.LogError("Overlay.Hotkey", ex); return false; }
     }
 
-    nint WndProc(nint hwnd, int msg, nint w, nint l, ref bool handled)
+    void OnHotkey()
     {
-        if (msg == 0x0312 && w == HotkeyId)
-        {
-            handled = true;
-            if (!Enabled) { SetEnabled(true); return 0; }
-            _userHidden = !_userHidden;
-            Update();
-        }
-        return 0;
+        if (!Enabled) { SetEnabled(true); return; }
+        _userHidden = !_userHidden;
+        Update();
     }
+}
+
+/// <summary>
+/// Atalho global do Windows: uma thread própria registra o atalho (RegisterHotKey sem janela) e espera
+/// WM_HOTKEY na fila de mensagens dela. Não depende de nenhuma janela da interface.
+/// </summary>
+public interface IHotkey : IDisposable
+{
+    bool Register(uint mods, uint vk);
+    void Unregister();
+}
+
+public sealed class HotkeyThread : IHotkey
+{
+    const uint WM_HOTKEY = 0x0312, WM_QUIT = 0x0012, WM_APP_REGISTER = 0x8001, WM_APP_UNREGISTER = 0x8002;
+    readonly int _id;
+    readonly Action _onHotkey;
+    readonly Thread _thread;
+    readonly ManualResetEventSlim _ready = new();
+    readonly object _lock = new();
+    uint _tid, _mods, _vk;
+    bool _lastOk;
+    readonly ManualResetEventSlim _done = new();
+
+    public HotkeyThread(int id, Action onHotkey)
+    {
+        _id = id; _onHotkey = onHotkey;
+        _thread = new Thread(Loop) { IsBackground = true, Name = "Pulso.Hotkey" };
+        _thread.Start();
+        _ready.Wait(2000);
+    }
+
+    void Loop()
+    {
+        _tid = Native.GetCurrentThreadId();
+        Native.PeekMessage(out _, 0, 0x0400, 0x0400, 0); // força a criação da fila de mensagens da thread
+        _ready.Set();
+        while (Native.GetMessage(out var msg, 0, 0, 0) > 0)
+        {
+            if (msg.message == WM_HOTKEY && (int)msg.wParam == _id) _onHotkey();
+            else if (msg.message == WM_APP_REGISTER)
+            {
+                Native.UnregisterHotKey(0, _id);
+                _lastOk = Native.RegisterHotKey(0, _id, _mods, _vk);
+                _done.Set();
+            }
+            else if (msg.message == WM_APP_UNREGISTER) { Native.UnregisterHotKey(0, _id); _done.Set(); }
+        }
+        Native.UnregisterHotKey(0, _id);
+    }
+
+    public bool Register(uint mods, uint vk)
+    {
+        lock (_lock)
+        {
+            _mods = mods; _vk = vk; _done.Reset();
+            if (!Native.PostThreadMessage(_tid, WM_APP_REGISTER, 0, 0)) return false;
+            _done.Wait(1000);
+            return _lastOk;
+        }
+    }
+
+    public void Unregister()
+    {
+        lock (_lock)
+        {
+            _done.Reset();
+            if (Native.PostThreadMessage(_tid, WM_APP_UNREGISTER, 0, 0)) _done.Wait(1000);
+        }
+    }
+
+    public void Dispose() => Native.PostThreadMessage(_tid, WM_QUIT, 0, 0);
 }

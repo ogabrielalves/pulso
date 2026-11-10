@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Windows.Markup;
 
 namespace Pulso.Core;
 
@@ -80,18 +79,4 @@ public readonly struct LocText
 
     public static string Apply(string template, object?[] args) =>
         args.Length == 0 ? template : string.Format(CultureInfo.CurrentCulture, template, args);
-}
-
-/// <summary>Use in XAML: Text="{l:T Painel, En=Dashboard}"</summary>
-[MarkupExtensionReturnType(typeof(string))]
-public sealed class TExtension : MarkupExtension
-{
-    public TExtension() { }
-    public TExtension(string pt) => Pt = pt;
-
-    public string Pt { get; set; } = "";
-    public string En { get; set; } = "";
-
-    public override object ProvideValue(IServiceProvider serviceProvider) =>
-        Loc.T(Pt, string.IsNullOrEmpty(En) ? Pt : En);
 }

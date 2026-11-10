@@ -1,10 +1,15 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using System.Globalization;
 using System.Net.NetworkInformation;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
 using Pulso.Controls;
 using Pulso.Core;
+using Pulso.Platform;
 using Pulso.Features;
 using Pulso.Hardware;
 using Pulso.Info;
@@ -22,21 +27,20 @@ public sealed class Gauge : FrameworkElement
 
     static double Scale(double v) => v <= 100 ? 100 : v <= 250 ? 250 : v <= 500 ? 500 : v <= 1000 ? 1000 : v <= 2500 ? 2500 : 10000;
 
-    protected override void OnRender(DrawingContext dc)
+    public override void Render(DrawingContext dc)
     {
         var track = Ui.Brush("Divider");
         var fill = Ui.Brush("AccentFill");
         var cx = 110.0; var cy = 112.0; var r = 90.0;
-        var bg = new Pen(track, 14) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+        var bg = new Pen(track, 14, lineCap: PenLineCap.Round);
         dc.DrawGeometry(null, bg, Arc(cx, cy, r, 1));
         double f = Math.Clamp(Value / Scale(Value), 0, 1);
         if (f > 0.005)
-            dc.DrawGeometry(null, new Pen(fill, 14) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }, Arc(cx, cy, r, f));
-        double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+            dc.DrawGeometry(null, new Pen(fill, 14, lineCap: PenLineCap.Round), Arc(cx, cy, r, f));
         var num = new FormattedText(Fmt.N(Value, Value >= 100 ? 0 : 1), CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-            new Typeface(Ui.MonoFont, FontStyles.Normal, FontWeights.Bold, FontStretches.Normal), 30, Ui.Brush("Text"), dpi);
+            new Typeface(Ui.MonoFont, FontStyle.Normal, FontWeight.Bold), 30, Ui.Brush("Text"));
         dc.DrawText(num, new Point(cx - num.Width / 2, 92 - num.Height + 6));
-        var cap = new FormattedText(Caption, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface(Ui.UiFont, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 12, Ui.Brush("TextMuted"), dpi);
+        var cap = new FormattedText(Caption, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface(Ui.UiFont), 12, Ui.Brush("TextMuted"));
         dc.DrawText(cap, new Point(cx - cap.Width / 2, 100));
     }
 
@@ -48,10 +52,10 @@ public sealed class Gauge : FrameworkElement
         var g = new StreamGeometry();
         using (var c = g.Open())
         {
-            c.BeginFigure(start, false, false);
-            c.ArcTo(end, new Size(r, r), 0, false, SweepDirection.Clockwise, true, false);
+            c.BeginFigure(start, false);
+            c.ArcTo(end, new Size(r, r), 0, false, SweepDirection.Clockwise);
+            c.EndFigure(false);
         }
-        g.Freeze();
         return g;
     }
 }
@@ -101,7 +105,7 @@ public sealed class InternetPage : PageBase
 
         // ping contínuo
         _target.Text = Settings.Current.PingTarget;
-        _target.KeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.Enter) TogglePing(); };
+        _target.KeyDown += (_, e) => { if (e.Key == Key.Enter) TogglePing(); };
         _pingBtn = Ui.Button(Loc.T("Iniciar", "Start"), TogglePing);
         _pingBtn.Padding = new Thickness(14, 7, 14, 7);
         var left = new StackPanel { Orientation = Orientation.Horizontal };
@@ -120,7 +124,7 @@ public sealed class InternetPage : PageBase
             t.Inlines.Add(lbl + " ");
             tb.FontFamily = MonoFont; tb.FontWeight = FontWeights.Bold; tb.Text = "—";
             tb.SetResourceReference(TextBlock.ForegroundProperty, key);
-            t.Inlines.Add(new System.Windows.Documents.InlineUIContainer(tb) { BaselineAlignment = BaselineAlignment.Baseline });
+            t.Inlines.Add(new Avalonia.Controls.Documents.InlineUIContainer(tb) { BaselineAlignment = BaselineAlignment.Baseline });
             stats.Children.Add(t);
         }
         var pingHead = new DockPanel();
@@ -129,7 +133,7 @@ public sealed class InternetPage : PageBase
         _pingChart = new LineChart { Height = 110, ShowAxis = true, Points = 180, Unit = Unit.Ms, FixedMin = 0 };
         _pingChart.Lines.Add(new ChartLine { Data = _pingMon.Data, BrushKey = "SeriesLime" });
         var pingCard = Card(new Stack(12, pingHead, _pingChart));
-        _pingMon.Updated += () => Dispatcher.BeginInvoke(UpdatePing);
+        _pingMon.Updated += () => Dispatcher.UIThread.Post(UpdatePing);
 
         var histCard = Card(new Stack(0, WithBottom(Title(Loc.T("Histórico", "History")), 10), _hist), 20, 18);
 
@@ -176,7 +180,7 @@ public sealed class InternetPage : PageBase
         var pub = await Http.GetPublicInfoAsync();
         var wifi = await Task.Run(InfoPages.Wifi);
         var nic = NetworkInterface.GetAllNetworkInterfaces()
-            .Where(SensorHub.IsPhysical)
+            .Where(NetSampler.IsPhysical)
             .Where(n => n.GetIPProperties().GatewayAddresses.Any(g => g.Address.ToString() != "0.0.0.0"))
             .OrderByDescending(n => n.NetworkInterfaceType == NetworkInterfaceType.Ethernet)
             .FirstOrDefault();

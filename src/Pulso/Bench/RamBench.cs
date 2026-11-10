@@ -16,8 +16,8 @@ public static unsafe class RamBench
         long avail = 2L << 30;
         try
         {
-            var pi = new Native.PERFORMANCE_INFORMATION { cb = Marshal.SizeOf<Native.PERFORMANCE_INFORMATION>() };
-            if (Native.GetPerformanceInfo(ref pi, pi.cb)) avail = (long)(pi.PhysicalAvailable * pi.PageSize);
+            long a = Pulso.Platform.OS.Current.AvailablePhysicalBytes();
+            if (a > 0) avail = a;
         }
         catch { }
         // 256 MB por buffer, bem maior que qualquer cache L3, sem apertar a RAM do sistema.

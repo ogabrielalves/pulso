@@ -1,5 +1,10 @@
-using System.Windows;
-using System.Windows.Controls;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Pulso.Bench;
 using Pulso.Controls;
 using Pulso.Core;
@@ -34,7 +39,10 @@ public sealed class BenchmarkPage : PageBase
         _ram.Define(("read", Loc.T("Leitura", "Read")), ("write", Loc.T("Escrita", "Write")), ("copy", Loc.T("Cópia", "Copy")), ("lat", Loc.T("Latência", "Latency")), ("err", Loc.T("Teste de erros", "Error test")));
         _disk.Define(("sr", Loc.T("Seq. leitura", "Seq. read")), ("sw", Loc.T("Seq. escrita", "Seq. write")), ("rr", Loc.T("4K leitura", "4K read")), ("rw", Loc.T("4K escrita", "4K write")));
 
-        var cards = Cols(14, new[] { 1.0, 1.0, 1.0, 1.0 }, _cpu.Root, _gpu.Root, _ram.Root, _disk.Root);
+        // O teste 3D usa Direct3D 12: só existe no Windows.
+        var cards = OperatingSystem.IsWindows()
+            ? Cols(14, new[] { 1.0, 1.0, 1.0, 1.0 }, _cpu.Root, _gpu.Root, _ram.Root, _disk.Root)
+            : Cols(14, new[] { 1.0, 1.0, 1.0 }, _cpu.Root, _ram.Root, _disk.Root);
 
         _note.Text = BenchHistory.Current?.Note ?? "";
         _note.ToolTip = Loc.T("Escreva o que mudou (ex.: \"Driver novo\", \"Cooler novo\") para comparar depois.", "Describe what changed (e.g. \"New driver\", \"New cooler\") to compare later.");
@@ -129,7 +137,7 @@ public sealed class BenchmarkPage : PageBase
         try
         {
             var r = await GpuRenderer.BenchmarkAsync(1920, 1080, TimeSpan.FromSeconds(20),
-                (fps, p) => Dispatcher.BeginInvoke(() => _gpu.Progress(p, $"{Fmt.N(fps)} FPS…")), _cts!.Token);
+                (fps, p) => Dispatcher.UIThread.Post(() => _gpu.Progress(p, $"{Fmt.N(fps)} FPS…")), _cts!.Token);
             var e = BenchHistory.Session();
             e.GpuFps = Math.Round(r.AvgFps, 1);
             e.Gpu3D = Math.Round(r.AvgFps * 150);

@@ -2,9 +2,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Text;
-using System.Windows;
-using System.Windows.Controls;
-using Microsoft.Win32;
+using Avalonia.Controls;
+using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Info;
 
@@ -29,9 +28,9 @@ public static class ReportExporter
     }
 
     /// <summary>Menu TXT / HTML / PDF abaixo do controle. Sem páginas = relatório completo.</summary>
-    public static void ShowMenu(FrameworkElement anchor, List<InfoPage>? pages)
+    public static void ShowMenu(Control anchor, List<InfoPage>? pages)
     {
-        var menu = new ContextMenu { PlacementTarget = anchor, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        var menu = new ContextMenu { Placement = Avalonia.Controls.PlacementMode.Bottom };
         foreach (var f in new[] { "TXT", "HTML", "PDF" })
         {
             string fmt = f;
@@ -39,7 +38,7 @@ public static class ReportExporter
             mi.Click += async (_, _) =>
             {
                 var p = pages ?? await BuildAllAsync();
-                Export(fmt, p, Loc.T("Relatório completo do sistema", "Full system report"));
+                await Export(anchor, fmt, p, Loc.T("Relatório completo do sistema", "Full system report"));
             };
             menu.Items.Add(mi);
         }
@@ -47,32 +46,28 @@ public static class ReportExporter
         copy.Click += async (_, _) =>
         {
             var p = pages ?? await BuildAllAsync();
-            try { Clipboard.SetText(ToText(p, Loc.T("Relatório do sistema", "System report"))); } catch { }
+            try { await Dialogs.CopyAsync(anchor, ToText(p, Loc.T("Relatório do sistema", "System report"))); } catch { }
         };
         menu.Items.Add(copy);
-        menu.IsOpen = true;
+        menu.Open(anchor);
     }
 
-    public static void Export(string fmt, List<InfoPage> pages, string title)
+    public static async Task Export(Control anchor, string fmt, List<InfoPage> pages, string title)
     {
         if (pages.Count == 0) return;
-        var dlg = new SaveFileDialog
-        {
-            InitialDirectory = Paths.Reports,
-            FileName = $"Pulso_{Environment.MachineName}_{DateTime.Now:yyyy-MM-dd_HHmm}",
-            DefaultExt = fmt.ToLowerInvariant(),
-            Filter = fmt switch { "HTML" => "HTML (*.html)|*.html", "PDF" => "PDF (*.pdf)|*.pdf", _ => Loc.T("Texto", "Text") + " (*.txt)|*.txt" },
-        };
-        if (dlg.ShowDialog() != true) return;
+        string name = $"Pulso_{Environment.MachineName}_{DateTime.Now:yyyy-MM-dd_HHmm}.{fmt.ToLowerInvariant()}";
+        string filter = fmt switch { "HTML" => "HTML", "PDF" => "PDF", _ => Loc.T("Texto", "Text") };
+        string? file = await Dialogs.SaveAsync(anchor, name, filter, "*." + fmt.ToLowerInvariant(), Loc.T("Salvar relatório", "Save report"));
+        if (file == null) return;
         try
         {
             switch (fmt)
             {
-                case "HTML": File.WriteAllText(dlg.FileName, ToHtml(pages, title), Encoding.UTF8); break;
-                case "PDF": File.WriteAllBytes(dlg.FileName, ToPdf(pages, title)); break;
-                default: File.WriteAllText(dlg.FileName, ToText(pages, title), Encoding.UTF8); break;
+                case "HTML": File.WriteAllText(file, ToHtml(pages, title), Encoding.UTF8); break;
+                case "PDF": File.WriteAllBytes(file, ToPdf(pages, title)); break;
+                default: File.WriteAllText(file, ToText(pages, title), Encoding.UTF8); break;
             }
-            Process.Start(new ProcessStartInfo(dlg.FileName) { UseShellExecute = true });
+            Platform.Shell.Open(file);
         }
         catch (Exception ex)
         {

@@ -1,4 +1,4 @@
-using System.Windows.Controls;
+using Avalonia.Controls;
 using Pulso.Hardware;
 
 namespace Pulso.Views;

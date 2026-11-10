@@ -1,5 +1,10 @@
-using System.Windows;
-using System.Windows.Controls;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Features;
@@ -66,14 +71,14 @@ public sealed class StartupPage : PageBase
         _on.Text = Fmt.N(_nOn);
         _off.Text = Fmt.N(_nOff);
         int slow = items.Count(i => i.Enabled && i.SlowBootSec != null);
-        _slow.Text = Native.IsAdmin ? Fmt.N(slow) : Fmt.Dash;
+        _slow.Text = Pulso.Platform.OS.Current.IsElevated ? Fmt.N(slow) : Fmt.Dash;
         _slow.SetResourceReference(TextBlock.ForegroundProperty, slow > 0 ? "Warn" : "Text");
         _boot.Text = boot.total is TimeSpan t ? Fmt.N(t.TotalSeconds) + " s" : Fmt.Dash;
         _boot.SetResourceReference(TextBlock.ForegroundProperty, boot.total is TimeSpan bt && bt.TotalSeconds > 60 ? "Warn" : "Text");
         _eyebrow.Text = boot.when is DateTime w ? Loc.T($"Último boot em {w.ToString("g", Fmt.Culture)}", $"Last boot at {w.ToString("g", Fmt.Culture)}") : Loc.T("Programas, atalhos e tarefas que abrem ao entrar no Windows", "Programs, shortcuts and tasks that open when you sign in");
 
         _banners.Children.Clear();
-        if (!Native.IsAdmin)
+        if (!Pulso.Platform.OS.Current.IsElevated)
             _banners.Children.Add(Banner(Loc.T("Sem administrador só dá para alterar os itens do seu usuário. Os de \"todos os usuários\" e as tarefas agendadas ficam bloqueados.", "Without administrator rights only your user's items can be changed. \"All users\" items and scheduled tasks are locked."), Health.Warning, false));
 
         _list.Children.Clear();
@@ -100,7 +105,7 @@ public sealed class StartupPage : PageBase
         var status = Text("", 12, null, "TextMuted");
         status.VerticalAlignment = VerticalAlignment.Center;
         status.Margin = new Thickness(0, 0, 12, 0);
-        CheckBox? toggle = null;
+        ToggleSwitch? toggle = null;
         toggle = Toggle(it.Enabled, async on =>
         {
             if (on == it.Enabled) return;
@@ -121,7 +126,7 @@ public sealed class StartupPage : PageBase
             _on.Text = Fmt.N(_nOn);
             _off.Text = Fmt.N(_nOff);
         });
-        if (it.NeedsAdmin && !Native.IsAdmin)
+        if (it.NeedsAdmin && !Pulso.Platform.OS.Current.IsElevated)
         {
             toggle.IsEnabled = false;
             toggle.ToolTip = Loc.T("Precisa de administrador", "Requires administrator");

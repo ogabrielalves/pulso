@@ -35,6 +35,11 @@ public sealed class StressReport
 public sealed class StressEngine
 {
     public bool Cpu, Gpu, Ram;
+
+    public sealed record GpuStressResult(long Errors);
+
+    /// <summary>Teste de estresse da GPU, fornecido pela plataforma (Direct3D no Windows). Null = sem suporte.</summary>
+    public static Func<Action<double, double>?, CancellationToken, Task<GpuStressResult>>? GpuStress { get; set; }
     public TimeSpan Duration = TimeSpan.FromMinutes(15);
     public double CpuLimit = 95, GpuLimit = 90;
 
@@ -90,7 +95,7 @@ public sealed class StressEngine
             for (int i = 0; i < ramThreads; i++) { int id = i; StartThread(() => RamWorker(perThread, id, ct), "Pulso.Stress.RAM"); }
         }
         if (Gpu)
-            _gpuTask = GpuRenderer.StressAsync((fps, _) => GpuFps = fps, ct).ContinueWith(t =>
+            _gpuTask = GpuStress!((fps, _) => GpuFps = fps, ct).ContinueWith(t =>
             {
                 if (t.IsCompletedSuccessfully) Interlocked.Add(ref _errors, t.Result.Errors);
                 else if (t.Exception != null) { Paths.LogError("Stress.GPU", t.Exception); Interlocked.Increment(ref _errors); }

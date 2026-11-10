@@ -28,6 +28,19 @@ public static class GpuInfo
     static List<Static> Read()
     {
         var list = new List<Static>();
+        if (OperatingSystem.IsLinux())
+        {
+            try { list = Platform.Linux.LinuxInfo.Gpus(); } catch (Exception ex) { Paths.LogError("GpuInfo.linux", ex); }
+            foreach (var g in list)
+            {
+                g.Vendor = g.VendorId switch { 0x10DE => "NVIDIA", 0x1002 or 0x1022 => "AMD", 0x8086 => "Intel", _ => $"0x{g.VendorId:X4}" };
+                g.Integrated = g.VendorId == 0x8086 ? !Regex.IsMatch(g.Name, @"Arc.*\b[AB]\d{3}") : g.DedicatedMB < 1024 && g.VendorId != 0x10DE;
+                var spec = Spec(g.Name);
+                if (spec != null) { g.Chip = spec.Value.chip; g.MemType = spec.Value.mem; g.BusWidth = spec.Value.bus; }
+                if (g.Integrated) g.MemType = Loc.T("Compartilhada com a RAM do sistema", "Shared with system RAM");
+            }
+            return list.OrderBy(g => g.Integrated).ToList();
+        }
         try
         {
             using var factory = DXGI.CreateDXGIFactory1<IDXGIFactory1>();

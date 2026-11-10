@@ -17,8 +17,46 @@ public static class DiskBench
 
     const FileOptions NoBuffering = (FileOptions)0x20000000;
 
+    // ---- Linux: abre o arquivo com O_DIRECT (sem cache de páginas) para medir o disco, não a RAM.
+    [System.Runtime.InteropServices.DllImport("libc", SetLastError = true)]
+    static extern int open([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPUTF8Str)] string path, int flags, int mode);
+
+    static SafeFileHandle OpenTestFile(string path, long size)
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            const int O_RDWR = 2, O_CREAT = 0x40, O_DSYNC = 0x1000;
+            int oDirect = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture == System.Runtime.InteropServices.Architecture.Arm64 ? 0x10000 : 0x4000;
+            int fd = open(path, O_RDWR | O_CREAT | O_DSYNC | oDirect, 0x180 /* 0600 */);
+            if (fd < 0) fd = open(path, O_RDWR | O_CREAT | O_DSYNC, 0x180); // sistema de arquivos sem O_DIRECT (ex.: tmpfs)
+            if (fd >= 0)
+            {
+                var h = new SafeFileHandle((nint)fd, true);
+                RandomAccess.SetLength(h, size);
+                return h;
+            }
+        }
+        return File.OpenHandle(path, FileMode.Create, FileAccess.ReadWrite, FileShare.None, FileOptions.Asynchronous | NoBuffering | FileOptions.WriteThrough | FileOptions.DeleteOnClose, size);
+    }
+
     public static string TestFilePath(string driveRoot)
     {
+        if (OperatingSystem.IsLinux())
+        {
+            // A raiz de um ponto de montagem costuma não ser gravável: tenta a pasta do usuário se for o mesmo disco.
+            foreach (var dir in new[] { driveRoot, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) })
+            {
+                try
+                {
+                    string f = Path.Combine(dir, ".pulso-bench.tmp");
+                    using (File.Create(f)) { }
+                    File.Delete(f);
+                    return f;
+                }
+                catch { }
+            }
+            return Path.Combine(Path.GetTempPath(), "pulso-bench.tmp");
+        }
         string root = Path.GetPathRoot(driveRoot) ?? driveRoot;
         string sysRoot = Path.GetPathRoot(Environment.SystemDirectory) ?? "C:\\";
         // Na unidade do Windows a raiz é protegida: usa a pasta temporária (mesmo disco).
@@ -43,7 +81,7 @@ public static class DiskBench
             new Random(7).NextBytes(mgr.GetSpan());
 
             double seqW, seqR, rR, rW, iops;
-            using (var h = File.OpenHandle(path, FileMode.Create, FileAccess.ReadWrite, FileShare.None, FileOptions.Asynchronous | NoBuffering | FileOptions.WriteThrough | FileOptions.DeleteOnClose, size))
+            using (var h = OpenTestFile(path, size))
             {
                 progress?.Report((0.02, Loc.T("Escrita sequencial", "Sequential write")));
                 seqW = await Sequential(h, size, mgr.Memory, seqBlock, 8, write: true, TimeSpan.FromSeconds(8), ct);
@@ -141,6 +179,25 @@ public static class DiskBench
     public static List<(string root, string label)> Drives()
     {
         var list = new List<(string, string)>();
+        if (OperatingSystem.IsLinux())
+        {
+            // só discos reais montados (ignora tmpfs, snap, loop…)
+            var seen = new HashSet<string>();
+            try
+            {
+                foreach (var l in File.ReadLines("/proc/self/mounts"))
+                {
+                    var p = l.Split(' ');
+                    if (p.Length < 3 || !p[0].StartsWith("/dev/", StringComparison.Ordinal) || p[0].StartsWith("/dev/loop", StringComparison.Ordinal)) continue;
+                    string mp = p[1].Replace("\\040", " ");
+                    if (mp.StartsWith("/snap", StringComparison.Ordinal) || mp.StartsWith("/boot", StringComparison.Ordinal) || !seen.Add(p[0])) continue;
+                    var di = new DriveInfo(mp);
+                    list.Add((mp, $"{mp} · {Fmt.Bytes(di.AvailableFreeSpace)} {Loc.T("livres", "free")}"));
+                }
+            }
+            catch { }
+            return list;
+        }
         foreach (var d in DriveInfo.GetDrives())
         {
             try

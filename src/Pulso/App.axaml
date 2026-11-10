@@ -1,0 +1,18 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Pulso.App"
+             RequestedThemeVariant="Dark">
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://Pulso/Themes/Styles.axaml" />
+    </Application.Styles>
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://Pulso/Themes/Colors.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <FontFamily x:Key="UiFont">avares://Pulso/Assets/Fonts#Manrope</FontFamily>
+            <FontFamily x:Key="MonoFont">avares://Pulso/Assets/Fonts#JetBrains Mono</FontFamily>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -1,5 +1,10 @@
-using System.Windows;
-using System.Windows.Controls;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Features;
@@ -120,7 +125,7 @@ public sealed class DashboardPage : PageBase
         dock.Children.Add(arrow);
         dock.Children.Add(new Stack(2, Text(title, 13, FontWeights.Bold), Text(sub, 11.5, null, "TextMuted")));
         var b = new Button { Content = dock };
-        b.SetResourceReference(StyleProperty, "RowButton");
+        b.Classes.Add("row");
         b.Click += (_, _) => _main.Navigate(target);
         return b;
     }
@@ -136,8 +141,8 @@ public sealed class DashboardPage : PageBase
         var items = new (string k, string v, string sub)[]
         {
             (Loc.T("Processador", "Processor"), ShortCpu(s.Cpu.Brand), Loc.T($"{s.Cpu.Cores} núcleos · {s.Cpu.Threads} threads", $"{s.Cpu.Cores} cores · {s.Cpu.Threads} threads")),
-            (Loc.T("Placa de vídeo", "Graphics card"), gpu != null ? ShortGpu(gpu.Name) : Fmt.NA, gpu == null ? "" : gpu.Integrated ? Loc.T("Integrada", "Integrated") : $"{Fmt.N(Math.Round(gpu.DedicatedMB / 1024))} GB {gpu.MemType}".Trim()),
-            (Loc.T("Memória", "Memory"), memGb > 0 ? $"{Fmt.N(memGb)} GB {mem.Modules.FirstOrDefault()?.Type}" : Fmt.NA, mem.ChannelMode.Split(" — ")[0]),
+            (Loc.T("Placa de vídeo", "Graphics card"), gpu != null ? ShortGpu(gpu.Name) : Fmt.NA, gpu == null ? "" : gpu.Integrated ? Loc.T("Integrada", "Integrated") : gpu.DedicatedMB > 0 ? $"{Fmt.N(Math.Round(gpu.DedicatedMB / 1024))} GB {gpu.MemType}".Trim() : ""),
+            (Loc.T("Memória", "Memory"), memGb > 0 ? $"{Fmt.N(memGb)} GB {mem.Modules.FirstOrDefault()?.Type}" : SensorHub.Instance.Last?.Mem.TotalGB is double tg ? $"{Fmt.N(Math.Round(tg))} GB" : Fmt.NA, mem.ChannelMode.Split(" — ")[0]),
             (Loc.T("Discos", "Drives"), s.Disks.Count > 0 ? string.Join(" · ", s.Disks.Take(3).Select(d => ShortDisk(d))) : Fmt.NA, string.Join(" + ", s.Disks.Select(d => d.Kind).Where(k => k != "").Distinct())),
             (Loc.T("Sistema", "System"), s.OsName.Replace("Microsoft ", ""), $"{s.OsVersion} · build {s.OsBuild}".Trim(' ', '·')),
         };
@@ -197,8 +202,8 @@ public sealed class DashboardPage : PageBase
             bottom.Children.Add(Text(d.Kind, 12, null, "TextMuted"));
             _disks.Children.Add(new Stack(8, top, bar, bottom));
         }
-        var sys = _sum.Disks.FirstOrDefault(d => d.Partitions.Any(p => p.Letter.StartsWith("C", StringComparison.OrdinalIgnoreCase)));
-        _diskActLabel.Text = Loc.T("Atividade do disco C:", "Drive C: activity");
+        var sys = _sum.Disks.FirstOrDefault(d => d.Partitions.Any(p => OperatingSystem.IsWindows() ? p.Letter.StartsWith("C", StringComparison.OrdinalIgnoreCase) : p.Letter == "/"));
+        _diskActLabel.Text = OperatingSystem.IsWindows() ? Loc.T("Atividade do disco C:", "Drive C: activity") : Loc.T("Atividade do disco do sistema", "System drive activity");
         _sysDiskIndex = sys == null ? 0 : _sum.Disks.IndexOf(sys);
     }
 
@@ -206,7 +211,7 @@ public sealed class DashboardPage : PageBase
 
     public override void OnSnapshot(Snapshot s)
     {
-        var up = TimeSpan.FromMilliseconds(Native.GetTickCount64());
+        var up = TimeSpan.FromMilliseconds(Environment.TickCount64);
         _eyebrow.Text = $"{Environment.MachineName} · {Loc.T("ligado há", "up for")} {Fmt.Duration(up)}";
 
         var c = s.Cpu;
@@ -252,7 +257,7 @@ public sealed class DashboardPage : PageBase
         {
             try { ProcessMonitor.Instance.Sample(); }
             catch (Exception ex) { Paths.LogError("Dashboard.Heavy", ex); }
-        }).ContinueWith(_ => Dispatcher.BeginInvoke(() =>
+        }).ContinueWith(_ => Dispatcher.UIThread.Post(() =>
         {
             Interlocked.Exchange(ref _sampling, 0);
             if (!Shown) return;

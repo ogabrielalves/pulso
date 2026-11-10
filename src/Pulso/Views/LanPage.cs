@@ -1,7 +1,11 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using System.Diagnostics;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
 using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Features;
@@ -69,15 +73,15 @@ public sealed class LanPage : PageBase
             new Stack(10, Caps(Loc.T("Monitoramento", "Monitoring")), cfgCard), limits));
 
         _status.Visibility = Visibility.Collapsed;
-        LanScanner.Changed += () => Dispatcher.BeginInvoke(OnChanged);
-        LanScanner.Progress += (p, t) => Dispatcher.BeginInvoke(() =>
+        LanScanner.Changed += () => Dispatcher.UIThread.Post(OnChanged);
+        LanScanner.Progress += (p, t) => Dispatcher.UIThread.Post(() =>
         {
             _bar.Visibility = _status.Visibility = Visibility.Visible;
             _bar.Value = p;
             if (t.Length > 0) _status.Text = t;
         });
         // não redesenha a lista enquanto o usuário digita um nome
-        _list.LostKeyboardFocus += (_, _) => { if (_dirty && !_list.IsKeyboardFocusWithin) Render(); };
+        _list.LostFocus += (_, _) => { if (_dirty && !_list.IsKeyboardFocusWithin) Render(); };
     }
 
     static Border StatTile(string label, TextBlock value, string? tip)
@@ -230,13 +234,13 @@ public sealed class LanPage : PageBase
         chev.SetResourceReference(TextBlock.ForegroundProperty, "TextMuted");
         right.Children.Add(chev);
 
-        var head = new DockPanel { Background = System.Windows.Media.Brushes.Transparent, Cursor = Cursors.Hand };
+        var head = new DockPanel { Background = Brushes.Transparent, Cursor = new Cursor(StandardCursorType.Hand) };
         DockPanel.SetDock(icon, Dock.Left);
         DockPanel.SetDock(right, Dock.Right);
         head.Children.Add(icon);
         head.Children.Add(right);
         head.Children.Add(info);
-        head.MouseLeftButtonUp += (_, _) =>
+        head.PointerReleased += (_, _) =>
         {
             if (!_open.Add(d.Mac)) _open.Remove(d.Mac);
             Render();
@@ -250,12 +254,12 @@ public sealed class LanPage : PageBase
     /// <summary>Ícone desenhado do tipo de aparelho (mesmo traço dos ícones do menu).</summary>
     public static Viewbox TypeIcon(string type, string brush, double size)
     {
-        var path = new System.Windows.Shapes.Path
+        var path = new Avalonia.Controls.Shapes.Path
         {
-            Data = System.Windows.Media.Geometry.Parse(LanTypes.Icon(type)), Width = 24, Height = 24, StrokeThickness = 1.7,
-            StrokeLineJoin = System.Windows.Media.PenLineJoin.Round, StrokeStartLineCap = System.Windows.Media.PenLineCap.Round, StrokeEndLineCap = System.Windows.Media.PenLineCap.Round,
+            Data = Geometry.Parse(LanTypes.Icon(type)), Width = 24, Height = 24, StrokeThickness = 1.7,
+            StrokeJoin = PenLineJoin.Round, StrokeLineCap = PenLineCap.Round,
         };
-        path.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, brush);
+        path.SetResourceReference(Avalonia.Controls.Shapes.Shape.StrokeProperty, brush);
         return new Viewbox { Width = size, Height = size, Child = path, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
     }
 
@@ -285,7 +289,7 @@ public sealed class LanPage : PageBase
         void Save()
         {
             LanScanner.Update(d, nameBox.Text, (type.SelectedItem as ComboBoxItem)?.Tag as string);
-            Keyboard.ClearFocus();
+            TopLevel.GetTopLevel(this)?.FocusManager?.ClearFocus();
             Render();
         }
         nameBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) Save(); };

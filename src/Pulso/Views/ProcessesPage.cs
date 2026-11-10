@@ -1,5 +1,10 @@
-using System.Windows;
-using System.Windows.Controls;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Features;
@@ -100,7 +105,7 @@ public sealed class ProcessesPage : PageBase
         {
             try { Mon.Sample(); }
             catch (Exception ex) { Paths.LogError("ProcessesPage.Sample", ex); }
-        }).ContinueWith(_ => Dispatcher.BeginInvoke(() =>
+        }).ContinueWith(_ => Dispatcher.UIThread.Post(() =>
         {
             Interlocked.Exchange(ref _sampling, 0);
             if (Shown) Render();
@@ -160,7 +165,7 @@ public sealed class ProcessesPage : PageBase
         var (_, failed) = await Task.Run(() => ProcessMonitor.Kill(a));
         if (failed > 0)
             MessageBox.Show(Window.GetWindow(this)!,
-                Loc.T($"{failed} processo(s) não puderam ser finalizados", $"{failed} process(es) could not be ended") + (Native.IsAdmin ? "." : Loc.T(" (rode o Pulso como administrador).", " (run Pulso as administrator).")),
+                Loc.T($"{failed} processo(s) não puderam ser finalizados", $"{failed} process(es) could not be ended") + (Pulso.Platform.OS.Current.IsElevated ? "." : Loc.T(" (rode o Pulso como administrador).", " (run Pulso as administrator).")),
                 "Pulso", MessageBoxButton.OK, MessageBoxImage.Information);
         SensorHub.Instance.Poke();
     }

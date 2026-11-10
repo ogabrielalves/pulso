@@ -6,7 +6,7 @@
 
 [English](README.md) · [Português (Brasil)](README.pt-BR.md) · **Русский**
 
-Диагностика, мониторинг и тестирование оборудования для Windows 10 и 11 в одном портативном исполняемом файле.
+Диагностика, мониторинг и тестирование оборудования для Windows 10/11 и Linux в одном портативном исполняемом файле.
 
 ![Обзор Pulso](docs/img/demo.gif)
 
@@ -41,12 +41,14 @@
 |---|---|
 | Windows 11 (64-bit) | ✅ Протестировано |
 | Windows 10 (64-bit) | ⚠️ Должно работать, ещё не тестировалось |
-| macOS | ❌ Не поддерживается: Pulso использует WPF и API только для Windows, поэтому там не запускается |
-| Linux | ❌ Не поддерживается по той же причине |
+| Linux (64-разрядный, рабочий стол X11/Wayland) | ✅ Работает (интерфейс Avalonia). Функции только для Windows (восстановление DISM/SFC, winget, обновление драйверов, FPS через ETW, PawnIO) недоступны |
+| macOS | ❌ Не поддерживается |
 
 ## Запуск
 
-Для Pulso нужна 64-разрядная Windows 10 или 11.
+Pulso работает в 64-разрядных Windows 10/11 и Linux.
+
+### Windows
 
 - **Из исполняемого файла:** откройте `dist\Pulso.exe` (см. [Где найти сборку](#где-найти-сборку)). Он портативный: ничего устанавливать и иметь .NET на компьютере не нужно.
 - **Из исходного кода:** при установленном [.NET 10 SDK](https://dotnet.microsoft.com/download):
@@ -61,9 +63,33 @@
 
 Параметры командной строки: `--minimized` (запуск в трей), `--no-elevate` (не запрашивать права администратора), `--page <id>` (открыть нужную страницу).
 
+### Linux
+
+Установите [.NET 10 SDK](https://dotnet.microsoft.com/download) (или только runtime для запуска готовой сборки), затем из корня репозитория:
+
+```bash
+dotnet run --project src/Pulso
+```
+
+Или соберите автономный исполняемый файл, которому .NET на компьютере не нужен:
+
+```bash
+cd src/Pulso
+dotnet publish -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true \
+  -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o ../../dist
+chmod +x ../../dist/Pulso
+../../dist/Pulso
+```
+
+Примечания для Linux:
+
+- Работает от обычного пользователя, права администратора не запрашиваются. Для некоторых датчиков и SMART могут понадобиться `sudo` или доступ на чтение к `/sys` и дисковым устройствам.
+- «Запуск вместе с системой» создаёт `~/.config/autostart/pulso.desktop`; это работает в GNOME, KDE, Xfce и других freedesktop-средах.
+- Те же параметры (`--minimized`, `--page <id>`) работают.
+
 ## Сборка
 
-Нужен .NET SDK 10 в Windows.
+Нужен .NET SDK 10 в Windows или Linux.
 
 ```powershell
 dotnet build Pulso.sln -c Release
@@ -71,7 +97,7 @@ dotnet build Pulso.sln -c Release
 
 ### Создание исполняемого файла
 
-Создаёт один автономный `Pulso.exe` (для запуска .NET не требуется):
+В Windows создаёт один автономный `Pulso.exe` (для запуска .NET не требуется):
 
 ```powershell
 cd src\Pulso
@@ -83,8 +109,8 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 | Что | Где |
 |---|---|
-| Единый исполняемый файл (`publish` выше) | `dist\Pulso.exe` |
-| Обычная сборка (`dotnet build -c Release`) | `src\Pulso\bin\Release\net10.0-windows\win-x64\` |
+| Единый исполняемый файл (`publish` выше) | `dist\Pulso.exe` (Windows) или `dist/Pulso` (Linux) |
+| Обычная сборка (`dotnet build -c Release`) | `src\Pulso\bin\Release\net10.0\win-x64\` (Windows) или `src/Pulso/bin/Release/net10.0/linux-x64/` (Linux) |
 
 Папка `dist\` не хранится в git: кому нужен исполняемый файл, собирает его командой выше.
 

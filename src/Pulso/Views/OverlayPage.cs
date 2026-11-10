@@ -1,8 +1,10 @@
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
-using System.Windows.Input;
-using System.Windows.Media;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Features;
@@ -13,7 +15,7 @@ namespace Pulso.Views;
 
 public sealed class OverlayPage : PageBase
 {
-    readonly CheckBox _toggle = new();
+    readonly ToggleSwitch _toggle = new();
     readonly Grid _preview = new();
     readonly OverlayPanel _panel = new() { IsHitTestVisible = false };
     readonly TextBlock _detected = Text("", 11.5, null, "TextMuted");
@@ -28,27 +30,14 @@ public sealed class OverlayPage : PageBase
 
     public OverlayPage()
     {
-        _toggle.SetResourceReference(StyleProperty, "BigToggle");
         _toggle.IsChecked = O.Enabled;
-        _toggle.Content = O.Enabled ? Loc.T("Overlay ativo", "Overlay on") : Loc.T("Overlay desativado", "Overlay off");
-        _toggle.Checked += (_, _) => { OverlayController.Instance.SetEnabled(true); _toggle.Content = Loc.T("Overlay ativo", "Overlay on"); };
-        _toggle.Unchecked += (_, _) => { OverlayController.Instance.SetEnabled(false); _toggle.Content = Loc.T("Overlay desativado", "Overlay off"); };
+        _toggle.OnContent = Loc.T("Overlay ativo", "Overlay on");
+        _toggle.OffContent = Loc.T("Overlay desativado", "Overlay off");
+        _toggle.IsCheckedChanged += (_, _) => OverlayController.Instance.SetEnabled(_toggle.IsChecked == true);
         _toggle.VerticalAlignment = VerticalAlignment.Bottom;
 
         // pré-visualização 16:9 com fundo listrado
-        var stripes = new DrawingBrush
-        {
-            TileMode = TileMode.Tile, Viewport = new Rect(0, 0, 28, 28), ViewportUnits = BrushMappingMode.Absolute,
-            Transform = new RotateTransform(45),
-            Drawing = new DrawingGroup
-            {
-                Children =
-                {
-                    new GeometryDrawing(new SolidColorBrush(Color.FromRgb(0x1D, 0x21, 0x1F)), null, new RectangleGeometry(new Rect(0, 0, 14, 28))),
-                    new GeometryDrawing(new SolidColorBrush(Color.FromRgb(0x20, 0x25, 0x23)), null, new RectangleGeometry(new Rect(14, 0, 14, 28))),
-                },
-            },
-        };
+        var stripes = new SolidColorBrush(Color.FromRgb(0x1D, 0x21, 0x1F));
         var screen = new Border { CornerRadius = new CornerRadius(18), BorderThickness = new Thickness(1), Background = stripes, ClipToBounds = true }.Res(Border.BorderBrushProperty, "Divider");
         var placeholder = Num(Loc.T("pré-visualização · captura do jogo", "preview · game capture"), 13, "Placeholder", FontWeights.Normal);
         placeholder.HorizontalAlignment = HorizontalAlignment.Center;
@@ -60,18 +49,26 @@ public sealed class OverlayPage : PageBase
         var host = new Grid();
         host.SizeChanged += (_, e) => screen.Height = e.NewSize.Width * 9 / 16;
         host.Children.Add(screen);
-        var leftCol = new Stack(10, host, _fsoHint, Text(Loc.T("O overlay ignora cliques do mouse e não recebe foco, então não interfere no jogo. Não injeta nada no jogo (seguro com anti-cheat). Em tela cheia exclusiva ele depende das otimizações de tela cheia do Windows estarem ligadas.",
-                                                  "The overlay ignores mouse clicks and never takes focus, so it doesn't interfere with the game. Nothing is injected into the game (anti-cheat safe). In exclusive fullscreen it relies on Windows fullscreen optimizations being on."), 12, null, "TextMuted", wrap: true));
+        var leftCol = new Stack(10, host, _fsoHint, Text(OperatingSystem.IsWindows()
+                                              ? Loc.T("O overlay ignora cliques do mouse e não recebe foco, então não interfere no jogo. Não injeta nada no jogo (seguro com anti-cheat). Em tela cheia exclusiva ele depende das otimizações de tela cheia do Windows estarem ligadas.",
+                                                  "The overlay ignores mouse clicks and never takes focus, so it doesn't interfere with the game. Nothing is injected into the game (anti-cheat safe). In exclusive fullscreen it relies on Windows fullscreen optimizations being on.")
+                                              : Loc.T("O overlay ignora cliques do mouse e não recebe foco. No Linux ele mostra CPU, GPU, RAM, temperaturas e clock (FPS não está disponível) e precisa de uma sessão X11 com compositor; jogos em tela cheia exclusiva podem escondê-lo, então use o modo \"sem bordas\".",
+                                                  "The overlay ignores mouse clicks and never takes focus. On Linux it shows CPU, GPU, RAM, temperatures and clock (FPS is not available) and needs an X11 session with a compositor; exclusive-fullscreen games may hide it, so use borderless mode."), 12, null, "TextMuted", wrap: true));
 
         // itens
         var chips = new WrapPanel();
         foreach (var (id, pt, en) in OverlayItems.All)
         {
+            if (!OverlayItems.Available(id)) continue;
             var c = new ToggleButton { Content = Loc.T(pt, en), IsChecked = O.Items.Contains(id) };
-            c.SetResourceReference(StyleProperty, "Chip");
+            c.Classes.Add("chip");
             string iid = id;
-            c.Checked += (_, _) => { if (!O.Items.Contains(iid)) O.Items.Add(iid); Save(); };
-            c.Unchecked += (_, _) => { O.Items.Remove(iid); Save(); };
+            c.IsCheckedChanged += (_, _) =>
+            {
+                if (c.IsChecked == true) { if (!O.Items.Contains(iid)) O.Items.Add(iid); }
+                else O.Items.Remove(iid);
+                Save();
+            };
             chips.Children.Add(c);
         }
         var itemsCard = Card(new Stack(10, Label(Loc.T("Itens exibidos", "Items shown")), chips), 16, 16);
@@ -86,9 +83,9 @@ public sealed class OverlayPage : PageBase
             var (corner, row, col) = cornersDef[i];
             var dot = new Border { Width = 16, Height = 10, CornerRadius = new CornerRadius(3), HorizontalAlignment = col == 0 ? HorizontalAlignment.Left : HorizontalAlignment.Right, VerticalAlignment = row == 0 ? VerticalAlignment.Top : VerticalAlignment.Bottom };
             _corners[i] = dot;
-            var cell = new Border { CornerRadius = new CornerRadius(7), Padding = new Thickness(5), Margin = new Thickness(3), Child = dot, Cursor = Cursors.Hand }.Res(Border.BackgroundProperty, "Well");
+            var cell = new Border { CornerRadius = new CornerRadius(7), Padding = new Thickness(5), Margin = new Thickness(3), Child = dot, Cursor = new Cursor(StandardCursorType.Hand) }.Res(Border.BackgroundProperty, "Well");
             var cc = corner;
-            cell.MouseLeftButtonUp += (_, _) => { O.Corner = cc; Save(); };
+            cell.PointerReleased += (_, _) => { O.Corner = cc; Save(); };
             Grid.SetRow(cell, row); Grid.SetColumn(cell, col);
             cornerGrid.Children.Add(cell);
         }
@@ -109,8 +106,8 @@ public sealed class OverlayPage : PageBase
         foreach (var hex in new[] { "#FFFFFF", "#C5F36A", "#F2B84B", "#7AD3FF", "#FF8FA3" })
         {
             string h = hex;
-            var sw = new Border { Width = 26, Height = 26, CornerRadius = new CornerRadius(13), Margin = new Thickness(0, 0, 8, 0), Cursor = Cursors.Hand, BorderThickness = new Thickness(2), Background = (Brush)new BrushConverter().ConvertFromString(hex)!, ToolTip = hex };
-            sw.MouseLeftButtonUp += (_, _) => { O.TextColor = h; Save(); };
+            var sw = new Border { Width = 26, Height = 26, CornerRadius = new CornerRadius(13), Margin = new Thickness(0, 0, 8, 0), Cursor = new Cursor(StandardCursorType.Hand), BorderThickness = new Thickness(2), Background = new SolidColorBrush(Color.Parse(hex)), ToolTip = hex };
+            sw.PointerReleased += (_, _) => { O.TextColor = h; Save(); };
             swatches.Children.Add(sw);
         }
         var opacity = new Slider { Minimum = 0, Maximum = 1, Value = O.BackgroundOpacity, SmallChange = 0.05, LargeChange = 0.1 };
@@ -125,20 +122,20 @@ public sealed class OverlayPage : PageBase
         _swatches = swatches;
 
         // atalho e detecção
-        _hotkey.SetResourceReference(StyleProperty, "StepButton");
+        _hotkey.Classes.Add("step");
         _hotkey.Width = double.NaN; _hotkey.Height = double.NaN;
         _hotkey.Padding = new Thickness(10, 6, 10, 6);
         _hotkey.FontFamily = MonoFont; _hotkey.FontSize = 12;
         _hotkey.Content = HotkeyText(O.Hotkey);
         _hotkey.ToolTip = Loc.T("Clique e pressione a nova combinação de teclas.", "Click and press the new key combination.");
         _hotkey.Click += (_, _) => { _capturing = true; _hotkey.Content = Loc.T("Pressione as teclas…", "Press the keys…"); _hotkey.Focus(); };
-        _hotkey.PreviewKeyDown += OnHotkeyKey;
+        _hotkey.AddHandler(KeyDownEvent, OnHotkeyKey, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         var hkBorder = new Border { BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Child = _hotkey }.Res(Border.BorderBrushProperty, "BorderStrong");
         var auto = Toggle(O.OnlyInGames, on => { O.OnlyInGames = on; Save(); });
         var autoLabel = new Stack(2, Text(Loc.T("Só exibir com jogo aberto", "Only show while a game is running"), 13), _detected);
         var rowsCard = Card(new Stack(0,
             SettingRow(Loc.T("Mostrar/ocultar", "Show/hide"), null, hkBorder, first: true),
-            new Border { Child = WithToggle(autoLabel, auto), BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(0, 12, 0, 12) }.Res(Border.BorderBrushProperty, "Divider")), 16, 6);
+            new Border { IsVisible = OperatingSystem.IsWindows(), Child = WithToggle(autoLabel, auto), BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(0, 12, 0, 12) }.Res(Border.BorderBrushProperty, "Divider")), 16, 6);
         ((Border)((Stack)rowsCard.Child).Children[0]).Padding = new Thickness(0, 12, 0, 12);
 
         var right = new Stack(14, itemsCard, layoutCard, lookCard, rowsCard);
@@ -150,13 +147,13 @@ public sealed class OverlayPage : PageBase
         grid.Children.Add(leftCol); grid.Children.Add(right);
 
         Content = Scroll(new Stack(18, Header(Loc.T("Impacto estimado no jogo: menos de 0,5% de CPU", "Estimated in-game impact: under 0.5% CPU"), "Overlay", _toggle), grid));
-        OverlayController.Instance.StateChanged += () => Dispatcher.BeginInvoke(UpdateDetected);
+        OverlayController.Instance.StateChanged += () => Dispatcher.UIThread.Post(UpdateDetected);
         UpdateLook();
     }
 
     StackPanel _swatches;
 
-    static DockPanel WithToggle(UIElement left, CheckBox toggle)
+    static DockPanel WithToggle(UIElement left, ToggleSwitch toggle)
     {
         var d = new DockPanel();
         DockPanel.SetDock(toggle, Dock.Right);
@@ -167,20 +164,20 @@ public sealed class OverlayPage : PageBase
 
     static string HotkeyText(string hk) => hk.Replace("+", " + ");
 
-    void OnHotkeyKey(object sender, KeyEventArgs e)
+    void OnHotkeyKey(object? sender, KeyEventArgs e)
     {
         if (!_capturing) return;
         e.Handled = true;
-        var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftShift or Key.RightShift or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin) return;
+        var key = e.Key;
+        if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftShift or Key.RightShift or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin or Key.None) return;
         if (key == Key.Escape) { _capturing = false; _hotkey.Content = HotkeyText(O.Hotkey); return; }
-        var mods = Keyboard.Modifiers;
+        var mods = e.KeyModifiers;
         bool fkey = key >= Key.F1 && key <= Key.F24;
-        if (mods == ModifierKeys.None && !fkey) { _hotkey.Content = Loc.T("Use Ctrl, Alt ou Shift + tecla", "Use Ctrl, Alt or Shift + key"); return; }
+        if (mods == KeyModifiers.None && !fkey) { _hotkey.Content = Loc.T("Use Ctrl, Alt ou Shift + tecla", "Use Ctrl, Alt or Shift + key"); return; }
         var parts = new List<string>();
-        if (mods.HasFlag(ModifierKeys.Control)) parts.Add("Ctrl");
-        if (mods.HasFlag(ModifierKeys.Shift)) parts.Add("Shift");
-        if (mods.HasFlag(ModifierKeys.Alt)) parts.Add("Alt");
+        if (mods.HasFlag(KeyModifiers.Control)) parts.Add("Ctrl");
+        if (mods.HasFlag(KeyModifiers.Shift)) parts.Add("Shift");
+        if (mods.HasFlag(KeyModifiers.Alt)) parts.Add("Alt");
         parts.Add(key.ToString());
         string prev = O.Hotkey;
         O.Hotkey = string.Join("+", parts);
@@ -220,6 +217,7 @@ public sealed class OverlayPage : PageBase
     void UpdateDetected()
     {
         var oc = OverlayController.Instance;
+        if (!OperatingSystem.IsWindows()) { _detected.Text = ""; return; }
         _detected.Text = !O.Enabled ? Loc.T("Ative o overlay para detectar jogos", "Turn on the overlay to detect games")
             : FpsMonitor.Instance.Error ?? (oc.CurrentGame != null ? Loc.T($"Detectado agora: {oc.CurrentGame}.exe", $"Detected now: {oc.CurrentGame}.exe") : Loc.T("Nenhum jogo detectado agora", "No game detected right now"));
         UpdateFsoHint();

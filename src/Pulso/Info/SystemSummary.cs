@@ -15,6 +15,8 @@ public static class SystemSummary
         public string OsName = "", OsVersion = "", OsBuild = "";
     }
 
+    public static string? LinuxPrettyName() => OperatingSystem.IsLinux() ? Platform.Linux.LinuxPlatform.ReadOsRelease("PRETTY_NAME") : null;
+
     static Task<Data>? _task;
     static DateTime _disksTime;
 
@@ -38,6 +40,13 @@ public static class SystemSummary
         try { d.Gpus = await Task.Run(GpuInfo.Get); } catch (Exception ex) { Paths.LogError("Summary.gpu", ex); }
         try { d.Memory = await MemoryInfo.ReadAsync(); } catch (Exception ex) { Paths.LogError("Summary.mem", ex); }
         try { d.Disks = await StorageInfo.ReadAsync(); _disksTime = DateTime.Now; } catch (Exception ex) { Paths.LogError("Summary.disk", ex); }
+        if (OperatingSystem.IsLinux())
+        {
+            d.OsName = LinuxPrettyName() ?? "Linux";
+            d.OsVersion = Platform.Linux.LinuxPlatform.ReadOsRelease("VERSION_ID") ?? "";
+            d.OsBuild = Platform.Linux.LinuxPlatform.KernelVersion();
+            return d;
+        }
         try
         {
             using var k = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");

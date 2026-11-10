@@ -35,7 +35,25 @@ public static class MemoryInfo
         public string? Warning;
     }
 
-    public static async Task<Data> ReadAsync()
+    public static Task<Data> ReadAsync() => OperatingSystem.IsLinux() ? Task.Run(ReadLinux) : ReadWindowsAsync();
+
+    static Data ReadLinux()
+    {
+        {
+            var d = Platform.Linux.LinuxInfo.Memory();
+            foreach (var m in d.Modules) m.RatedSpeed = Math.Max(m.Speed, PartNumberSpeed(m.PartNumber) ?? 0);
+            var ch = d.Modules.Select(m => ChannelOf(m.Bank + " " + m.Slot)).Where(c => c != null).Distinct().Count();
+            int cnt = d.Modules.Count;
+            d.ChannelMode = ch switch { >= 4 => "Quad channel", 3 => "Triple channel", 2 => "Dual channel", 1 when cnt == 1 => "Single channel", 1 => Loc.T("Single channel (pentes no mesmo canal)", "Single channel (modules on the same channel)"), _ => cnt switch { 0 => "", 1 => "Single channel", 2 or 4 => Loc.T("Dual channel (provável)", "Dual channel (likely)"), _ => Loc.T("Desconhecido", "Unknown") } };
+            if (d.Modules.Count == 0)
+                d.Warning = null;
+            EvaluateXmp(d);
+            return d;
+        }
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    static async Task<Data> ReadWindowsAsync()
     {
         var d = new Data();
         var hub = SensorHub.Instance;

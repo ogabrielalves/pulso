@@ -41,7 +41,10 @@ public static class StorageInfo
         public string? PnpId;
     }
 
-    public static async Task<List<Disk>> ReadAsync()
+    public static Task<List<Disk>> ReadAsync() => OperatingSystem.IsLinux() ? Task.Run(Platform.Linux.LinuxInfo.Disks) : ReadWindowsAsync();
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    static async Task<List<Disk>> ReadWindowsAsync()
     {
         var hub = SensorHub.Instance;
         var disks = new List<Disk>();

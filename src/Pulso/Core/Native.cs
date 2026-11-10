@@ -106,6 +106,23 @@ internal static partial class Native
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool UnregisterHotKey(nint hWnd, int id);
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MSG { public nint hwnd; public uint message; public nuint wParam; public nint lParam; public uint time; public int x, y; }
+
+    [LibraryImport("user32.dll", EntryPoint = "GetMessageW")]
+    public static partial int GetMessage(out MSG msg, nint hWnd, uint min, uint max);
+
+    [LibraryImport("user32.dll", EntryPoint = "PeekMessageW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool PeekMessage(out MSG msg, nint hWnd, uint min, uint max, uint remove);
+
+    [LibraryImport("user32.dll", EntryPoint = "PostThreadMessageW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool PostThreadMessage(uint threadId, uint msg, nuint wParam, nint lParam);
+
+    [LibraryImport("kernel32.dll")]
+    public static partial uint GetCurrentThreadId();
+
     [LibraryImport("user32.dll", EntryPoint = "GetClassNameW", StringMarshalling = StringMarshalling.Utf16)]
     public static partial int GetClassName(nint hWnd, [Out] char[] buf, int max);
 

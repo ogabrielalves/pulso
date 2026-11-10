@@ -474,7 +474,7 @@ public static class LanScanner
             string text = news.Count == 1
                 ? $"{news[0].DisplayName} · {news[0].Ip}"
                 : Loc.T($"{news.Count} aparelhos novos, entre eles {news[0].DisplayName}", $"{news.Count} new devices, including {news[0].DisplayName}");
-            App.Current?.Dispatcher.BeginInvoke(() => App.Current.Tray?.Notify(Loc.T("Aparelho novo na rede", "New device on your network"), text, warning: false));
+            Notifier.Notify(Loc.T("Aparelho novo na rede", "New device on your network"), text, warning: false);
         }
         return new Result(infos.Length, news);
     }
@@ -532,8 +532,38 @@ public static class LanScanner
     [DllImport("iphlpapi.dll")]
     static extern int SendARP(uint destIp, uint srcIp, byte[] mac, ref int len);
 
+    /// <summary>Linux: provoca a resolução ARP com um datagrama UDP e lê o resultado em /proc/net/arp.</summary>
+    static string? ArpLinux(IPAddress ip)
+    {
+        string target = ip.ToString();
+        try
+        {
+            using var u = new System.Net.Sockets.UdpClient();
+            u.Send(new byte[] { 0 }, 1, new IPEndPoint(ip, 9));
+        }
+        catch { }
+        for (int i = 0; i < 10; i++)
+        {
+            try
+            {
+                foreach (var line in System.IO.File.ReadLines("/proc/net/arp").Skip(1))
+                {
+                    var c = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    // IP address | HW type | Flags | HW address | Mask | Device
+                    if (c.Length < 4 || c[0] != target) continue;
+                    if (c[2] == "0x0" || c[3] == "00:00:00:00:00:00") break; // ainda resolvendo
+                    return c[3].ToUpperInvariant();
+                }
+            }
+            catch { }
+            Thread.Sleep(40);
+        }
+        return null;
+    }
+
     static string? Arp(IPAddress ip)
     {
+        if (OperatingSystem.IsLinux()) return ArpLinux(ip);
         var mac = new byte[6];
         int len = mac.Length;
         if (SendARP(BitConverter.ToUInt32(ip.GetAddressBytes(), 0), 0, mac, ref len) != 0 || len < 6) return null;

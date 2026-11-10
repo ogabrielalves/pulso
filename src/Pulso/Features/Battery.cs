@@ -41,12 +41,13 @@ public static unsafe partial class Battery
     }
 
     static bool? _present;
-    public static bool Present => _present ??= DevicePaths().Count > 0;
+    public static bool Present => _present ??= (OperatingSystem.IsLinux() ? LinuxPaths().Count : DevicePaths().Count) > 0;
 
     // ------------------------------------------------------------- leitura
 
     public static List<Info> ReadAll()
     {
+        if (OperatingSystem.IsLinux()) return LinuxReadAll();
         var list = new List<Info>();
         foreach (var path in DevicePaths())
         {
@@ -78,6 +79,7 @@ public static unsafe partial class Battery
 
     public static Status? ReadStatus(Info b)
     {
+        if (OperatingSystem.IsLinux()) return LinuxStatus(b);
         try
         {
             using var h = Open(b.DevicePath);
@@ -106,8 +108,8 @@ public static unsafe partial class Battery
 
     static string Chem(string c) => c.ToUpperInvariant() switch
     {
-        "LION" or "LI-I" or "LI" => Loc.T("Íon de lítio (Li-ion)", "Lithium-ion (Li-ion)"),
-        "LIP" or "LIPO" or "LI-P" => Loc.T("Polímero de lítio (Li-Po)", "Lithium polymer (Li-Po)"),
+        "LION" or "LI-I" or "LI-ION" or "LI" => Loc.T("Íon de lítio (Li-ion)", "Lithium-ion (Li-ion)"),
+        "LIP" or "LIPO" or "LI-P" or "LI-POLY" or "LIPOLY" => Loc.T("Polímero de lítio (Li-Po)", "Lithium polymer (Li-Po)"),
         "NIMH" => "NiMH",
         "NICD" => "NiCd",
         "PBAC" => Loc.T("Chumbo-ácido", "Lead acid"),

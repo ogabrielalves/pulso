@@ -1,0 +1,199 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Botão base: pílula secundária. Todos os botões/rádios/toggles usam o mesmo modelo (Border + conteúdo). -->
+    <Style Selector="Button, RadioButton.segment, RadioButton.nav, RadioButton.subnav, ToggleButton.navparent, ToggleButton.chip">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Name="Presenter" Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Foreground="{TemplateBinding Foreground}"
+                                      FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button">
+        <Setter Property="Foreground" Value="{DynamicResource Text2}"/>
+        <Setter Property="Background" Value="{DynamicResource Tile}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="14,9"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button:pointerover /template/ Border#b"><Setter Property="Background" Value="{DynamicResource TileHover}"/></Style>
+    <Style Selector="Button:pointerover /template/ ContentPresenter#Presenter"><Setter Property="Foreground" Value="{DynamicResource Text}"/></Style>
+    <Style Selector="Button:pressed /template/ Border#b"><Setter Property="Opacity" Value="0.85"/></Style>
+    <Style Selector="Button:disabled /template/ Border#b"><Setter Property="Opacity" Value="0.45"/></Style>
+    <Style Selector="Button:focus-visible /template/ Border#b"><Setter Property="BorderBrush" Value="{DynamicResource Accent}"/></Style>
+
+    <!-- Ação principal (limão) -->
+    <Style Selector="Button.primary">
+        <Setter Property="Foreground" Value="{DynamicResource AccentText}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentFill}"/>
+        <Setter Property="Padding" Value="14,11"/>
+        <Setter Property="FontSize" Value="13.5"/>
+        <Setter Property="FontWeight" Value="ExtraBold"/>
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ Border#b"><Setter Property="Background" Value="{DynamicResource AccentHover}"/></Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#Presenter"><Setter Property="Foreground" Value="{DynamicResource AccentText}"/></Style>
+    <Style Selector="Button.primarypill">
+        <Setter Property="Foreground" Value="{DynamicResource AccentText}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentFill}"/>
+        <Setter Property="Padding" Value="22,12"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="ExtraBold"/>
+    </Style>
+    <Style Selector="Button.primarypill:pointerover /template/ Border#b"><Setter Property="Background" Value="{DynamicResource AccentFill}"/><Setter Property="Opacity" Value="0.9"/></Style>
+    <Style Selector="Button.primarypill:pointerover /template/ ContentPresenter#Presenter"><Setter Property="Foreground" Value="{DynamicResource AccentText}"/></Style>
+    <Style Selector="Button.dangerpill">
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Background" Value="{DynamicResource Crit}"/>
+        <Setter Property="Padding" Value="22,12"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="ExtraBold"/>
+    </Style>
+    <Style Selector="Button.dangerpill:pointerover /template/ Border#b"><Setter Property="Background" Value="{DynamicResource Crit}"/><Setter Property="Opacity" Value="0.9"/></Style>
+    <Style Selector="Button.dangerpill:pointerover /template/ ContentPresenter#Presenter"><Setter Property="Foreground" Value="White"/></Style>
+
+    <Style Selector="Button.link">
+        <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+    <Style Selector="Button.link:pointerover /template/ Border#b"><Setter Property="Background" Value="Transparent"/><Setter Property="Opacity" Value="0.8"/></Style>
+    <Style Selector="Button.link:pointerover /template/ ContentPresenter#Presenter"><Setter Property="Foreground" Value="{DynamicResource Accent}"/></Style>
+
+    <Style Selector="Button.row">
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Setter Property="Padding" Value="12,11"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
+
+    <Style Selector="Button.step">
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Width" Value="26"/>
+        <Setter Property="Height" Value="26"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+    <Style Selector="Button.step:pointerover /template/ Border#b"><Setter Property="Background" Value="{DynamicResource Well}"/></Style>
+
+    <Style Selector="Button.caption">
+        <Setter Property="Width" Value="46"/>
+        <Setter Property="Height" Value="36"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="FontSize" Value="13"/>
+    </Style>
+    <Style Selector="Button.caption:pointerover /template/ Border#b"><Setter Property="Background" Value="{DynamicResource Divider}"/></Style>
+    <Style Selector="Button.caption:pointerover /template/ ContentPresenter#Presenter"><Setter Property="Foreground" Value="{DynamicResource Text}"/></Style>
+    <Style Selector="Button.close:pointerover /template/ Border#b"><Setter Property="Background" Value="{DynamicResource CloseHover}"/></Style>
+    <Style Selector="Button.close:pointerover /template/ ContentPresenter#Presenter"><Setter Property="Foreground" Value="White"/></Style>
+
+    <!-- Pílulas de segmento e chips -->
+    <Style Selector="RadioButton.segment, ToggleButton.chip">
+        <Setter Property="Foreground" Value="{DynamicResource Text2}"/>
+        <Setter Property="Background" Value="{DynamicResource Tile}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="ToggleButton.chip"><Setter Property="Padding" Value="12,7"/><Setter Property="Margin" Value="0,0,6,6"/></Style>
+    <Style Selector="RadioButton.segment:pointerover /template/ ContentPresenter#Presenter, ToggleButton.chip:pointerover /template/ ContentPresenter#Presenter"><Setter Property="Foreground" Value="{DynamicResource Text}"/></Style>
+    <Style Selector="RadioButton.segment:checked /template/ Border#b, ToggleButton.chip:checked /template/ Border#b">
+        <Setter Property="Background" Value="{DynamicResource AccentSoft}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+    </Style>
+    <Style Selector="RadioButton.segment:checked /template/ ContentPresenter#Presenter, ToggleButton.chip:checked /template/ ContentPresenter#Presenter">
+        <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+    </Style>
+
+    <!-- Navegação lateral -->
+    <Style Selector="RadioButton.nav, RadioButton.subnav, ToggleButton.navparent">
+        <Setter Property="Foreground" Value="{DynamicResource Text3}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontSize" Value="13.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Margin" Value="0,0,0,2"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="RadioButton.subnav">
+        <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="Margin" Value="0,0,0,1"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="10,7"/>
+    </Style>
+    <Style Selector="RadioButton.nav:pointerover /template/ ContentPresenter#Presenter, RadioButton.subnav:pointerover /template/ ContentPresenter#Presenter, ToggleButton.navparent:pointerover /template/ ContentPresenter#Presenter">
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+    </Style>
+    <Style Selector="RadioButton.nav:checked /template/ Border#b, RadioButton.subnav:checked /template/ Border#b"><Setter Property="Background" Value="{DynamicResource NavSelected}"/></Style>
+    <Style Selector="RadioButton.nav:checked /template/ ContentPresenter#Presenter, RadioButton.subnav:checked /template/ ContentPresenter#Presenter">
+        <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+    </Style>
+
+    <!-- Campos -->
+    <Style Selector="TextBox">
+        <Setter Property="Background" Value="{DynamicResource Well}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Divider}"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="12,9"/>
+    </Style>
+    <Style Selector="ComboBox">
+        <Setter Property="Background" Value="{DynamicResource Tile}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="12,8"/>
+    </Style>
+    <Style Selector="ToolTip">
+        <Setter Property="Background" Value="{DynamicResource Tile}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderStrong}"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="MaxWidth" Value="360"/>
+    </Style>
+    <Style Selector="ToggleSwitch">
+        <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+    </Style>
+    <Style Selector="ProgressBar">
+        <Setter Property="Foreground" Value="{DynamicResource AccentFill}"/>
+        <Setter Property="Background" Value="{DynamicResource Divider}"/>
+        <Setter Property="MinHeight" Value="8"/>
+        <Setter Property="Height" Value="8"/>
+        <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+    <Style Selector="Slider">
+        <Setter Property="Foreground" Value="{DynamicResource AccentFill}"/>
+    </Style>
+</Styles>

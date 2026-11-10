@@ -13,8 +13,29 @@ public static class Startup
     const string TaskName = "Pulso";
     const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
+    // Linux: autostart padrão do freedesktop (GNOME, KDE, Xfce…): ~/.config/autostart/pulso.desktop
+    static string AutostartFile => System.IO.Path.Combine(
+        Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") is { Length: > 0 } x ? x : System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config"),
+        "autostart", "pulso.desktop");
+
+    static bool SetLinux(bool on)
+    {
+        try
+        {
+            string f = AutostartFile;
+            if (!on) { if (System.IO.File.Exists(f)) System.IO.File.Delete(f); return true; }
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(f)!);
+            System.IO.File.WriteAllText(f,
+                "[Desktop Entry]\nType=Application\nName=Pulso\nComment=Hardware diagnostics and monitoring\n" +
+                $"Exec=\"{Paths.ExePath}\" --minimized\nIcon=pulso\nTerminal=false\nX-GNOME-Autostart-enabled=true\n");
+            return true;
+        }
+        catch (Exception ex) { Paths.LogError("Startup.linux", ex); return false; }
+    }
+
     public static bool IsEnabled()
     {
+        if (OperatingSystem.IsLinux()) return System.IO.File.Exists(AutostartFile);
         if (RunSchtasks($"/Query /TN \"{TaskName}\"") == 0) return true;
         using var k = Registry.CurrentUser.OpenSubKey(RunKey);
         return k?.GetValue(TaskName) != null;
@@ -22,6 +43,7 @@ public static class Startup
 
     public static bool Set(bool on)
     {
+        if (OperatingSystem.IsLinux()) return SetLinux(on);
         string exe = Paths.ExePath;
         try
         {
@@ -92,7 +114,7 @@ public static class PawnIo
         try
         {
             Process.Start(new ProcessStartInfo(Paths.ExePath, Native.IsAdmin ? "--no-elevate" : "") { UseShellExecute = true });
-            App.Current.Exit();
+            Notifier.RequestExit();
         }
         catch { }
     }

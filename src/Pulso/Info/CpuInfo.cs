@@ -103,6 +103,15 @@ public static class CpuInfo
             var a => a.ToString(),
         };
 
+        if (OperatingSystem.IsLinux())
+        {
+            try { Platform.Linux.LinuxInfo.FillCpu(r); } catch (Exception ex) { Paths.LogError("CpuInfo.linux", ex); }
+            var lm = System.Text.RegularExpressions.Regex.Match(r.Brand, @"@\s*([\d.]+)\s*GHz", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (lm.Success && r.BaseMhz <= 0 && double.TryParse(lm.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lg)) r.BaseMhz = lg * 1000;
+            ApplyTable(r);
+            return r;
+        }
+
         try
         {
             using var s = new ManagementObjectSearcher("SELECT Name, MaxClockSpeed, SocketDesignation, NumberOfCores, NumberOfLogicalProcessors FROM Win32_Processor");
@@ -284,6 +293,7 @@ public static class CpuInfo
     public static bool IsLaptop()
     {
         if (_laptop is bool b) return b;
+        if (OperatingSystem.IsLinux()) return (_laptop = Platform.Linux.LinuxInfo.IsLaptop()).Value;
         try
         {
             using var s = new ManagementObjectSearcher("SELECT ChassisTypes FROM Win32_SystemEnclosure");
@@ -296,9 +306,15 @@ public static class CpuInfo
     }
 
     /// <summary>TDP do Intel via MSR (precisa do driver PawnIO); executado na thread de sensores.</summary>
-    public static async Task<double?> ReadIntelTdpAsync()
+    public static Task<double?> ReadIntelTdpAsync()
     {
-        if (!SensorHub.Instance.CpuIsIntel || !SensorHub.Instance.PawnIoInstalled) return null;
+        if (!OperatingSystem.IsWindows() || !SensorHub.Instance.CpuIsIntel || !SensorHub.Instance.PawnIoInstalled) return Task.FromResult<double?>(null);
+        return ReadIntelTdpWindowsAsync();
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    static async Task<double?> ReadIntelTdpWindowsAsync()
+    {
         return await SensorHub.Instance.InvokeAsync<double?>(_ =>
         {
             try

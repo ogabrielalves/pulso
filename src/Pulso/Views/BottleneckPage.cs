@@ -1,7 +1,11 @@
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Shapes;
-using System.Windows.Threading;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Shapes;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Pulso.Bench;
 using Pulso.Controls;
 using Pulso.Core;
@@ -133,8 +137,8 @@ public sealed class BottleneckPage : PageBase
         if (r.Enough)
         {
             _cpuPct.Inlines.Add(Loc.T("Gargalo estimado de CPU: ", "Estimated CPU bottleneck: "));
-            var b = new System.Windows.Documents.Run(Fmt.N(r.CpuBottleneck) + "%") { FontFamily = MonoFont, FontWeight = FontWeights.Bold };
-            b.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "Text");
+            var b = new Avalonia.Controls.Documents.Run(Fmt.N(r.CpuBottleneck) + "%") { FontFamily = MonoFont, FontWeight = FontWeights.Bold };
+            b.SetResourceReference(Avalonia.Controls.Documents.TextElement.ForegroundProperty, "Text");
             _cpuPct.Inlines.Add(b);
         }
         _cpuPct.ToolTip = Loc.T("Quanto de desempenho da placa de vídeo está sobrando porque o processador não acompanha. 0–10% é normal.", "How much GPU performance is left unused because the processor can't keep up. 0–10% is normal.");
@@ -186,7 +190,7 @@ public sealed class BottleneckPage : PageBase
 
     void LayoutScale()
     {
-        double w = _scale.ActualWidth;
+        double w = _scale.Bounds.Width;
         if (w <= 0) return;
         _track.Width = w;
         double center = w / 2;

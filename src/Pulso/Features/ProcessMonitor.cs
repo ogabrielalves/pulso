@@ -53,8 +53,8 @@ public sealed unsafe partial class ProcessMonitor : IDisposable
             long now = Stopwatch.GetTimestamp();
             double secs = _lastTicks == 0 ? 0 : (now - _lastTicks) / (double)Stopwatch.Frequency;
             _lastTicks = now;
-            var gpu = Gpu ? _gpu.Read() : null;
-            var net = Network ? _net.Drain() : null;
+            var gpu = Gpu && OperatingSystem.IsWindows() ? _gpu.Read() : null;
+            var net = Network && OperatingSystem.IsWindows() ? _net.Drain() : null;
             int cpus = Environment.ProcessorCount;
 
             var apps = new Dictionary<string, AppUsage>(StringComparer.OrdinalIgnoreCase);
@@ -95,6 +95,7 @@ public sealed unsafe partial class ProcessMonitor : IDisposable
     /// <summary>SYSTEM_PROCESS_INFORMATION (x64): todos os processos numa chamada só.</summary>
     List<ProcInfo> Snapshot()
     {
+        if (OperatingSystem.IsLinux()) return LinuxSnapshot();
         var list = new List<ProcInfo>(400);
         while (true)
         {
@@ -129,6 +130,7 @@ public sealed unsafe partial class ProcessMonitor : IDisposable
 
     (string name, string path) Describe(string image, int pid)
     {
+        if (OperatingSystem.IsLinux()) return LinuxDescribe(image, pid);
         if (_names.TryGetValue(image, out var d)) return d;
         string path = "", name = System.IO.Path.GetFileNameWithoutExtension(image);
         try
@@ -304,7 +306,7 @@ public sealed unsafe partial class ProcessMonitor : IDisposable
     };
 
     public static bool CanKill(AppUsage a) =>
-        !Critical.Contains(a.Image) && !a.Pids.Contains(Environment.ProcessId);
+        !(OperatingSystem.IsLinux() ? LinuxCritical.Contains(a.Image) : Critical.Contains(a.Image)) && !a.Pids.Contains(Environment.ProcessId);
 
     public static (int killed, int failed) Kill(AppUsage a)
     {

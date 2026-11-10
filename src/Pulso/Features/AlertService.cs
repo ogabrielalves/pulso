@@ -35,7 +35,7 @@ public static class AlertService
                 if (_last.TryGetValue(rule.MetricId, out var t) && DateTime.Now - t < TimeSpan.FromSeconds(cfg.AlertCooldownSec)) continue;
                 _last[rule.MetricId] = DateTime.Now;
             }
-            App.Current?.Dispatcher.BeginInvoke(() => App.Current.Tray?.Notify(Loc.T("Pulso — alerta", "Pulso — alert"), text));
+            Notifier.Notify(Loc.T("Pulso — alerta", "Pulso — alert"), text);
         }
         Active = active;
     }

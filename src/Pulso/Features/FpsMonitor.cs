@@ -68,6 +68,11 @@ public sealed class FpsMonitor : IDisposable
 
     void StartSession()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            Error = Loc.T("O contador de FPS só existe no Windows (usa os eventos de quadros do Windows).", "The FPS counter is Windows-only (it uses Windows frame-presentation events).");
+            return;
+        }
         if (!Native.IsAdmin)
         {
             Error = Loc.T("O contador de FPS precisa que o Pulso rode como administrador.", "The FPS counter requires running Pulso as administrator.");
@@ -192,6 +197,7 @@ public sealed class FpsMonitor : IDisposable
     /// <summary>Processo em primeiro plano que está renderizando quadros (provável jogo).</summary>
     public (int pid, string name, double fps, double frametime, double? low1)? Foreground()
     {
+        if (!OperatingSystem.IsWindows()) return null;
         try
         {
             nint fg = Native.GetForegroundWindow();

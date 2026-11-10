@@ -1,7 +1,12 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using System.Diagnostics;
 using System.IO;
-using System.Windows;
-using System.Windows.Controls;
 using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Features;

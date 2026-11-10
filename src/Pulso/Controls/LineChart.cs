@@ -1,6 +1,7 @@
 using System.Globalization;
-using System.Windows;
-using System.Windows.Media;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
 using Pulso.Core;
 using Pulso.Hardware;
 
@@ -18,7 +19,7 @@ public sealed class ChartLine
 /// Gráfico de linhas desenhado direto com StreamGeometry: sem bibliotecas,
 /// sem objetos por ponto, re-renderiza só quando chamado (1x por leitura).
 /// </summary>
-public sealed class LineChart : FrameworkElement
+public sealed class LineChart : Control
 {
     public List<ChartLine> Lines { get; } = new();
     public object? SyncRoot { get; set; }
@@ -39,8 +40,8 @@ public sealed class LineChart : FrameworkElement
 
     public LineChart()
     {
-        SnapsToDevicePixels = true;
         ClipToBounds = true;
+        IsHitTestVisible = false;
     }
 
     public void Refresh()
@@ -63,13 +64,12 @@ public sealed class LineChart : FrameworkElement
         InvalidateVisual();
     }
 
-    static Brush Res(string key, Brush fallback) => Application.Current?.TryFindResource(key) as Brush ?? fallback;
+    static IBrush Res(string key, IBrush fallback) { var b = Compat.Brush(key); return ReferenceEquals(b, Brushes.Gray) ? fallback : b; }
 
-    protected override void OnRender(DrawingContext dc)
+    public override void Render(DrawingContext dc)
     {
-        double w = ActualWidth, h = ActualHeight;
+        double w = Bounds.Width, h = Bounds.Height;
         if (w < 10 || h < 10) return;
-        double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
 
         // escala
         double max = double.MinValue, min = double.MaxValue;
@@ -91,8 +91,7 @@ public sealed class LineChart : FrameworkElement
         double left = 0, right = ShowAxis ? 46 : 0, top = ShowAxis ? 6 : 2, bottom = ShowAxis ? 6 : 2;
         double pw = w - left - right, ph = h - top - bottom;
         var grid = Res("Grid", Brushes.DimGray);
-        var gridPen = new Pen(grid, 1) { DashStyle = new DashStyle(new double[] { 4, 4 }, 0) };
-        gridPen.Freeze();
+        var gridPen = new Pen(grid, 1, new DashStyle(new double[] { 4, 4 }, 0));
 
         if (ShowGrid && !ShowAxis)
             for (int i = 1; i <= 3; i++)
@@ -108,7 +107,7 @@ public sealed class LineChart : FrameworkElement
                 double y = top + ph * i / 3.0;
                 dc.DrawLine(gridPen, new Point(left, Math.Round(y) + 0.5), new Point(left + pw, Math.Round(y) + 0.5));
                 double val = hi - (hi - lo) * i / 3.0;
-                var ft = new FormattedText(Label(val), CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"), 10.5, muted, dpi);
+                var ft = new FormattedText(Label(val), CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface.Default, 10.5, muted);
                 dc.DrawText(ft, new Point(w - ft.Width - 2, Math.Clamp(y - ft.Height / 2, 0, h - ft.Height)));
             }
         }
@@ -119,8 +118,7 @@ public sealed class LineChart : FrameworkElement
             if (tv > lo && tv < hi)
             {
                 double y = top + ph * (1 - (tv - lo) / (hi - lo));
-                var p = new Pen(Res("Crit", Brushes.Red), 1) { DashStyle = DashStyles.Dash };
-                p.Freeze();
+                var p = new Pen(Res("Crit", Brushes.Red), 1, DashStyle.Dash);
                 dc.DrawLine(p, new Point(left, y), new Point(left + pw, y));
             }
         }
@@ -131,45 +129,51 @@ public sealed class LineChart : FrameworkElement
             int n = _counts[i];
             if (n < 2) continue;
             var brush = Res(Lines[i].BrushKey, Brushes.DeepSkyBlue);
-            var pen = new Pen(brush, LineWidth) { LineJoin = PenLineJoin.Round };
-            pen.Freeze();
+            var pen = new Pen(brush, LineWidth, lineJoin: PenLineJoin.Round);
             var geo = new StreamGeometry();
             var area = Lines[i].Fill ? new StreamGeometry() : null;
             using (var g = geo.Open())
             using (var a = area?.Open())
             {
-                bool started = false, areaStarted = false;
+                bool started = false, areaStarted = false, areaOpen = false;
                 double lastX = 0;
                 for (int k = 0; k < n; k++)
                 {
                     float v = _buf[i][k];
-                    if (float.IsNaN(v)) { started = false; continue; }
+                    if (float.IsNaN(v)) { if (started) g.EndFigure(false); started = false; continue; }
                     double dv = Unit == Unit.Temp ? Fmt.ToDisplayTemp(v) : v;
                     double x = left + pw - (n - 1 - k) * step;
                     double y = top + ph * (1 - Math.Clamp((dv - lo) / (hi - lo), 0, 1));
                     if (!started)
                     {
-                        g.BeginFigure(new Point(x, y), false, false);
+                        g.BeginFigure(new Point(x, y), false);
                         started = true;
                     }
-                    else g.LineTo(new Point(x, y), true, true);
+                    else g.LineTo(new Point(x, y));
 
                     if (a != null)
                     {
-                        if (!areaStarted) { a.BeginFigure(new Point(x, top + ph), true, true); areaStarted = true; }
-                        a.LineTo(new Point(x, y), false, false);
+                        if (!areaStarted) { a.BeginFigure(new Point(x, top + ph), true); areaStarted = true; areaOpen = true; }
+                        a.LineTo(new Point(x, y));
                     }
                     lastX = x;
                 }
-                if (a != null && areaStarted) a.LineTo(new Point(lastX, top + ph), false, false);
+                if (a != null && areaOpen) { a.LineTo(new Point(lastX, top + ph)); a.EndFigure(true); }
+                if (started) g.EndFigure(false);
             }
-            geo.Freeze();
-            if (area != null)
+            if (area != null && brush is ISolidColorBrush sb)
             {
-                area.Freeze();
-                var fill = new LinearGradientBrush(Color.FromArgb(FillAlpha, ((SolidColorBrush)brush).Color.R, ((SolidColorBrush)brush).Color.G, ((SolidColorBrush)brush).Color.B),
-                                                   Color.FromArgb(0, ((SolidColorBrush)brush).Color.R, ((SolidColorBrush)brush).Color.G, ((SolidColorBrush)brush).Color.B), 90);
-                fill.Freeze();
+                var c = sb.Color;
+                var fill = new LinearGradientBrush
+                {
+                    StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+                    EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+                    GradientStops =
+                    {
+                        new GradientStop(Color.FromArgb(FillAlpha, c.R, c.G, c.B), 0),
+                        new GradientStop(Color.FromArgb(0, c.R, c.G, c.B), 1),
+                    },
+                };
                 dc.DrawGeometry(fill, null, area);
             }
             dc.DrawGeometry(null, pen, geo);

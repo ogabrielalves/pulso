@@ -1,0 +1,115 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+            <Color x:Key="SystemAccentColor">#C5F36A</Color>
+            <Color x:Key="SystemAccentColorDark1">#A9D955</Color>
+            <Color x:Key="SystemAccentColorDark2">#8DBF42</Color>
+            <Color x:Key="SystemAccentColorDark3">#6F8F3D</Color>
+            <Color x:Key="SystemAccentColorLight1">#D4FF80</Color>
+            <Color x:Key="SystemAccentColorLight2">#DFFF9F</Color>
+            <Color x:Key="SystemAccentColorLight3">#EAFFC0</Color>
+            <SolidColorBrush x:Key="Bg" Color="#161918"/>
+            <SolidColorBrush x:Key="TitleBar" Color="#121514"/>
+            <SolidColorBrush x:Key="Sidebar" Color="#1B1E1D"/>
+            <SolidColorBrush x:Key="SidebarCard" Color="#222624"/>
+            <SolidColorBrush x:Key="Card" Color="#1F2321"/>
+            <SolidColorBrush x:Key="Surface" Color="#1F2321"/>
+            <SolidColorBrush x:Key="Tile" Color="#262B28"/>
+            <SolidColorBrush x:Key="TileHover" Color="#2D332F"/>
+            <SolidColorBrush x:Key="Well" Color="#1C201E"/>
+            <SolidColorBrush x:Key="Border" Color="#222725"/>
+            <SolidColorBrush x:Key="Divider" Color="#2A2F2C"/>
+            <SolidColorBrush x:Key="BorderStrong" Color="#3A403C"/>
+            <SolidColorBrush x:Key="Help" Color="#2F3532"/>
+            <SolidColorBrush x:Key="ToggleOff" Color="#323834"/>
+            <SolidColorBrush x:Key="TickBorder" Color="#4A514C"/>
+            <SolidColorBrush x:Key="Text" Color="#E8ECE9"/>
+            <SolidColorBrush x:Key="Text2" Color="#C9CFCB"/>
+            <SolidColorBrush x:Key="Text3" Color="#9AA39D"/>
+            <SolidColorBrush x:Key="TextMuted" Color="#8A938D"/>
+            <SolidColorBrush x:Key="TextFaint" Color="#6F7873"/>
+            <SolidColorBrush x:Key="Placeholder" Color="#5D6661"/>
+            <SolidColorBrush x:Key="Accent" Color="#C5F36A"/>
+            <SolidColorBrush x:Key="AccentFill" Color="#C5F36A"/>
+            <SolidColorBrush x:Key="AccentHover" Color="#D4FF80"/>
+            <SolidColorBrush x:Key="AccentText" Color="#151A10"/>
+            <SolidColorBrush x:Key="AccentSoft" Color="#14C5F36A"/>
+            <SolidColorBrush x:Key="AccentDim" Color="#6F8F3D"/>
+            <SolidColorBrush x:Key="NavSelected" Color="#283022"/>
+            <SolidColorBrush x:Key="LogoRing" Color="#2A3322"/>
+            <SolidColorBrush x:Key="LogoRing2" Color="#232B1C"/>
+            <SolidColorBrush x:Key="Good" Color="#C5F36A"/>
+            <SolidColorBrush x:Key="Warn" Color="#F2B84B"/>
+            <SolidColorBrush x:Key="WarnBg" Color="#2B2618"/>
+            <SolidColorBrush x:Key="WarnText" Color="#E9D6AE"/>
+            <SolidColorBrush x:Key="Crit" Color="#F26B5B"/>
+            <SolidColorBrush x:Key="CritBg" Color="#3A1F1C"/>
+            <SolidColorBrush x:Key="CritText" Color="#FF9A8D"/>
+            <SolidColorBrush x:Key="CloseHover" Color="#C4352B"/>
+            <SolidColorBrush x:Key="Grid" Color="#2A2F2C"/>
+            <SolidColorBrush x:Key="SeriesLime" Color="#C5F36A"/>
+            <SolidColorBrush x:Key="SeriesAmber" Color="#F2B84B"/>
+            <SolidColorBrush x:Key="SeriesWhite" Color="#E8ECE9"/>
+            <SolidColorBrush x:Key="SeriesCpu" Color="#C5F36A"/>
+            <SolidColorBrush x:Key="SeriesGpu" Color="#C5F36A"/>
+            <SolidColorBrush x:Key="SeriesTemp" Color="#F2B84B"/>
+            <SolidColorBrush x:Key="SeriesAlt" Color="#E8ECE9"/>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+            <Color x:Key="SystemAccentColor">#4A7A0C</Color>
+            <Color x:Key="SystemAccentColorDark1">#3E6609</Color>
+            <Color x:Key="SystemAccentColorDark2">#305207</Color>
+            <Color x:Key="SystemAccentColorDark3">#2F4A0E</Color>
+            <Color x:Key="SystemAccentColorLight1">#6FA324</Color>
+            <Color x:Key="SystemAccentColorLight2">#80B72E</Color>
+            <Color x:Key="SystemAccentColorLight3">#96CC40</Color>
+            <SolidColorBrush x:Key="Bg" Color="#F3F5F2"/>
+            <SolidColorBrush x:Key="TitleBar" Color="#E9ECE7"/>
+            <SolidColorBrush x:Key="Sidebar" Color="#ECEFEA"/>
+            <SolidColorBrush x:Key="SidebarCard" Color="#E2E6DF"/>
+            <SolidColorBrush x:Key="Card" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="Surface" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="Tile" Color="#F0F2EE"/>
+            <SolidColorBrush x:Key="TileHover" Color="#E6EAE3"/>
+            <SolidColorBrush x:Key="Well" Color="#E6E9E4"/>
+            <SolidColorBrush x:Key="Border" Color="#DDE2DA"/>
+            <SolidColorBrush x:Key="Divider" Color="#E5E9E2"/>
+            <SolidColorBrush x:Key="BorderStrong" Color="#C5CCC2"/>
+            <SolidColorBrush x:Key="Help" Color="#E1E5DE"/>
+            <SolidColorBrush x:Key="ToggleOff" Color="#D3D9D0"/>
+            <SolidColorBrush x:Key="TickBorder" Color="#AEB6AA"/>
+            <SolidColorBrush x:Key="Text" Color="#151916"/>
+            <SolidColorBrush x:Key="Text2" Color="#353C37"/>
+            <SolidColorBrush x:Key="Text3" Color="#535C56"/>
+            <SolidColorBrush x:Key="TextMuted" Color="#6A736D"/>
+            <SolidColorBrush x:Key="TextFaint" Color="#8B948E"/>
+            <SolidColorBrush x:Key="Placeholder" Color="#9AA29C"/>
+            <SolidColorBrush x:Key="Accent" Color="#4A7A0C"/>
+            <SolidColorBrush x:Key="AccentFill" Color="#B8EA55"/>
+            <SolidColorBrush x:Key="AccentHover" Color="#C8F46E"/>
+            <SolidColorBrush x:Key="AccentText" Color="#151A10"/>
+            <SolidColorBrush x:Key="AccentSoft" Color="#1A6B9E1A"/>
+            <SolidColorBrush x:Key="AccentDim" Color="#A6C770"/>
+            <SolidColorBrush x:Key="NavSelected" Color="#E1EDCC"/>
+            <SolidColorBrush x:Key="LogoRing" Color="#DCEBC2"/>
+            <SolidColorBrush x:Key="LogoRing2" Color="#E8F1D8"/>
+            <SolidColorBrush x:Key="Good" Color="#4A7A0C"/>
+            <SolidColorBrush x:Key="Warn" Color="#A86A00"/>
+            <SolidColorBrush x:Key="WarnBg" Color="#FBF0D9"/>
+            <SolidColorBrush x:Key="WarnText" Color="#6B4A0B"/>
+            <SolidColorBrush x:Key="Crit" Color="#D2452F"/>
+            <SolidColorBrush x:Key="CritBg" Color="#FBE3DF"/>
+            <SolidColorBrush x:Key="CritText" Color="#9C2A1C"/>
+            <SolidColorBrush x:Key="CloseHover" Color="#C4352B"/>
+            <SolidColorBrush x:Key="Grid" Color="#E5E9E2"/>
+            <SolidColorBrush x:Key="SeriesLime" Color="#5E9411"/>
+            <SolidColorBrush x:Key="SeriesAmber" Color="#D08A10"/>
+            <SolidColorBrush x:Key="SeriesWhite" Color="#4F5852"/>
+            <SolidColorBrush x:Key="SeriesCpu" Color="#5E9411"/>
+            <SolidColorBrush x:Key="SeriesGpu" Color="#5E9411"/>
+            <SolidColorBrush x:Key="SeriesTemp" Color="#D08A10"/>
+            <SolidColorBrush x:Key="SeriesAlt" Color="#4F5852"/>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

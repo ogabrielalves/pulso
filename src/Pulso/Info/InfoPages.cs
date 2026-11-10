@@ -86,31 +86,54 @@ public static class InfoPages
     }
 
     // ======================================================== PLACA-MÃE
-    public static async Task<InfoPage> BoardAsync()
+    sealed record Dmi(string? BoardMaker, string? BoardProduct, string? BoardVersion, string? SysMaker, string? SysProduct, string? BiosVendor, string? BiosVersion, DateTime? BiosDate);
+
+    static async Task<Dmi> ReadDmiAsync() => OperatingSystem.IsLinux() ? LinuxDmi() : await WindowsDmiAsync();
+
+    static Dmi LinuxDmi()
+    {
+        static string? D(string n) { var v = Platform.Linux.LinuxInfo.Dmi(n); return string.IsNullOrWhiteSpace(v) ? null : v; }
+        DateTime? date = DateTime.TryParse(D("bios_date"), System.Globalization.CultureInfo.GetCultureInfo("en-US"), System.Globalization.DateTimeStyles.None, out var dt) ? dt : null;
+        return new Dmi(D("board_vendor"), D("board_name"), D("board_version"), D("sys_vendor"), D("product_name"), D("bios_vendor"), D("bios_version"), date);
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    static async Task<Dmi> WindowsDmiAsync()
     {
         var smb = await SensorHub.Instance.InvokeAsync(pc => pc?.SMBios ?? new SMBios());
+        return new Dmi(smb.Board?.ManufacturerName, smb.Board?.ProductName, smb.Board?.Version, smb.System?.ManufacturerName, smb.System?.ProductName, smb.Bios?.Vendor, smb.Bios?.Version, smb.Bios?.Date);
+    }
+
+    public static async Task<InfoPage> BoardAsync()
+    {
+        var smb = await ReadDmiAsync();
         var snap = SensorHub.Instance.Last;
         _chipset ??= await Task.Run(Chipset);
         string chipset = _chipset;
         var p = new InfoPage { Title = L("Placa-mãe", "Motherboard") };
         var g = p.Group(L("Identificação", "Identification"));
-        g.Add(L("Fabricante", "Manufacturer"), smb.Board?.ManufacturerName);
-        g.Add(L("Modelo", "Model"), smb.Board?.ProductName);
-        g.Add(L("Revisão", "Revision"), smb.Board?.Version);
+        g.Add(L("Fabricante", "Manufacturer"), smb.BoardMaker);
+        g.Add(L("Modelo", "Model"), smb.BoardProduct);
+        g.Add(L("Revisão", "Revision"), smb.BoardVersion);
         g.Add("Chipset", chipset, L("Conjunto de chips que conecta processador, USB, SATA e PCIe. Define recursos como overclock e quantidade de portas.", "Chip set linking CPU, USB, SATA and PCIe. Defines features like overclocking and port count."));
-        if (!string.IsNullOrWhiteSpace(smb.System?.ProductName) && smb.System.ProductName != smb.Board?.ProductName)
-            g.Add(L("Sistema", "System"), $"{smb.System.ManufacturerName} {smb.System.ProductName}".Trim());
+        if (!string.IsNullOrWhiteSpace(smb.SysProduct) && smb.SysProduct != smb.BoardProduct)
+            g.Add(L("Sistema", "System"), $"{smb.SysMaker} {smb.SysProduct}".Trim());
 
         var b = p.Group("BIOS / UEFI");
-        b.Add(L("Fabricante", "Vendor"), smb.Bios?.Vendor);
-        b.Add(L("Versão", "Version"), smb.Bios?.Version, L("Atualizar a BIOS pode trazer compatibilidade com novos processadores e corrigir bugs.", "Updating BIOS can add support for new CPUs and fix bugs."));
-        b.Add(L("Data", "Date"), smb.Bios?.Date is DateTime dt ? dt.ToString("d", Fmt.Culture) : null);
-        try
+        b.Add(L("Fabricante", "Vendor"), smb.BiosVendor);
+        b.Add(L("Versão", "Version"), smb.BiosVersion, L("Atualizar a BIOS pode trazer compatibilidade com novos processadores e corrigir bugs.", "Updating BIOS can add support for new CPUs and fix bugs."));
+        b.Add(L("Data", "Date"), smb.BiosDate is DateTime dt ? dt.ToString("d", Fmt.Culture) : null);
+        if (OperatingSystem.IsLinux())
         {
-            using var k = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\SecureBoot\State");
-            if (k?.GetValue("UEFISecureBootEnabled") is int sb) b.Add("Secure Boot", sb == 1 ? L("Ativado", "Enabled") : L("Desativado", "Disabled"));
+            if (LinuxSecureBoot() is bool sb) b.Add("Secure Boot", sb ? L("Ativado", "Enabled") : L("Desativado", "Disabled"));
         }
-        catch { }
+        else
+            try
+            {
+                using var k = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\SecureBoot\State");
+                if (k?.GetValue("UEFISecureBootEnabled") is int sb) b.Add("Secure Boot", sb == 1 ? L("Ativado", "Enabled") : L("Desativado", "Disabled"));
+            }
+            catch { }
 
         var t = p.Group(L("Sensores", "Sensors"));
         if (snap != null && (snap.BoardTemps.Count > 0 || snap.Fans.Count > 0))
@@ -130,8 +153,39 @@ public static class InfoPages
 
     static string? _chipset;
 
+    static bool? LinuxSecureBoot()
+    {
+        try
+        {
+            var f = System.IO.Directory.EnumerateFiles("/sys/firmware/efi/efivars", "SecureBoot-*").FirstOrDefault();
+            if (f == null) return null;
+            var b = System.IO.File.ReadAllBytes(f);
+            return b.Length > 4 ? b[4] == 1 : null;
+        }
+        catch { return null; }
+    }
+
+    static string LinuxChipset()
+    {
+        // O chipset aparece no lspci como a ponte LPC/eSPI (Intel) ou ponte ISA/FCH (AMD).
+        var o = Platform.Linux.Tool.Run("lspci", "-mm") ?? "";
+        foreach (var line in o.Split('\n'))
+        {
+            var parts = Regex.Matches(line, "\"([^\"]*)\"").Select(m => m.Groups[1].Value).ToList();
+            if (parts.Count < 3) continue;
+            if (!Regex.IsMatch(parts[0], "ISA bridge|LPC|eSPI|Host bridge", RegexOptions.IgnoreCase) || !Regex.IsMatch(parts[0], "ISA bridge|LPC|eSPI", RegexOptions.IgnoreCase)) continue;
+            string dev = parts[2];
+            var br = Regex.Match(dev, @"\[([^\]]+)\]");
+            var m2 = Regex.Match(dev, @"\b([BHQXZW]\d{3}[A-Z]?)\b");
+            if (parts[1].Contains("Intel") && m2.Success) return "Intel " + m2.Groups[1].Value;
+            return (parts[1].Contains("Intel") ? "Intel " : parts[1].Contains("AMD") ? "AMD " : "") + (br.Success ? br.Groups[1].Value : dev);
+        }
+        return CpuInfo.IsLaptop() ? L("Integrado ao processador (SoC)", "Integrated in the processor (SoC)") : "";
+    }
+
     static string Chipset()
     {
+        if (OperatingSystem.IsLinux()) return LinuxChipset();
         try
         {
             using var s = new ManagementObjectSearcher("SELECT Name, PNPDeviceID FROM Win32_PnPEntity WHERE PNPDeviceID LIKE 'PCI\\\\VEN_8086%' OR PNPDeviceID LIKE 'PCI\\\\VEN_1022%'");
@@ -168,7 +222,47 @@ public static class InfoPages
         public string Description = "";
     }
 
+    /// <summary>Wi-Fi no Linux via NetworkManager (nmcli).</summary>
+    static List<WifiInfo> LinuxWifi()
+    {
+        var list = new List<WifiInfo>();
+        var o = Platform.Linux.Tool.Run("nmcli", "-t -f IN-USE,SSID,SIGNAL,CHAN,FREQ,RATE,DEVICE device wifi list");
+        foreach (var line in (o ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var f = Regex.Split(line, @"(?<!\\):").Select(x => x.Replace("\\:", ":")).ToArray();
+            if (f.Length < 7 || f[0] != "*") continue;
+            var w = new WifiInfo { Ssid = f[1], Description = f[6] };
+            int.TryParse(f[2], out w.Signal);
+            int.TryParse(f[3], out w.Channel);
+            var mf = Regex.Match(f[4], @"(\d+)");
+            if (mf.Success) w.Band = $"{int.Parse(mf.Groups[1].Value) / 1000.0:0.#} GHz";
+            var mr = Regex.Match(f[5], @"(\d+)");
+            if (mr.Success) { w.RxMbps = int.Parse(mr.Groups[1].Value); w.TxMbps = w.RxMbps; }
+            w.Phy = w.Band.StartsWith("6") ? "Wi-Fi 6E/7" : w.Band.StartsWith("5") ? "Wi-Fi 5/6" : "Wi-Fi 4/6";
+            // dBm real: /proc/net/wireless (coluna "level")
+            try
+            {
+                foreach (var l in System.IO.File.ReadLines("/proc/net/wireless"))
+                    if (l.TrimStart().StartsWith(w.Description + ":", StringComparison.Ordinal))
+                    {
+                        var cols = l.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        if (cols.Length > 3 && double.TryParse(cols[3].TrimEnd('.'), out var dbm)) w.Rssi = (int)dbm;
+                    }
+            }
+            catch { }
+            list.Add(w);
+        }
+        return list;
+    }
+
     public static List<WifiInfo> Wifi()
+    {
+        if (OperatingSystem.IsLinux()) return LinuxWifi();
+        return WindowsWifi();
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    static List<WifiInfo> WindowsWifi()
     {
         var list = new List<WifiInfo>();
         try
@@ -248,7 +342,7 @@ public static class InfoPages
             if (v6.Count > 0) g.Add(L("IP local (IPv6)", "Local IP (IPv6)"), string.Join(", ", v6.Take(2)));
             g.Add("Gateway", string.Join(", ", ip.GatewayAddresses.Select(a => a.Address.ToString()).Where(a => a != "0.0.0.0")), L("Endereço do roteador.", "Router address."));
             g.Add("DNS", string.Join(", ", ip.DnsAddresses.Select(a => a.ToString()).Take(4)), L("Servidores que traduzem nomes de sites em endereços IP.", "Servers that translate site names into IP addresses."));
-            g.Add("DHCP", Fmt.YesNo(ip.GetIPv4Properties()?.IsDhcpEnabled ?? false));
+            try { g.Add("DHCP", Fmt.YesNo(ip.GetIPv4Properties()?.IsDhcpEnabled ?? false)); } catch { }
             if (wl)
             {
                 var w = wifi.FirstOrDefault(x => x.Description == n.Description) ?? wifi.FirstOrDefault();
@@ -267,7 +361,32 @@ public static class InfoPages
     }
 
     // ======================================================== SISTEMA OPERACIONAL
-    public static Task<InfoPage> OsAsync() => Task.Run(() =>
+    static InfoPage LinuxOs()
+    {
+        var p = new InfoPage { Title = L("Sistema operacional", "Operating system") };
+        var g = p.Group("Linux");
+        string R(string k) => Platform.Linux.LinuxPlatform.ReadOsRelease(k) ?? "";
+        g.Add(L("Distribuição", "Distribution"), R("PRETTY_NAME"));
+        g.Add(L("Versão", "Version"), R("VERSION"));
+        g.Add("Kernel", Platform.Linux.LinuxPlatform.KernelVersion());
+        g.Add(L("Arquitetura", "Architecture"), System.Runtime.InteropServices.RuntimeInformation.OSArchitecture.ToString());
+        g.Add(L("Ambiente gráfico", "Desktop"), Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "");
+        g.Add(L("Servidor de janelas", "Display server"), Environment.GetEnvironmentVariable("XDG_SESSION_TYPE") ?? "");
+        g.Add(L("Nome do computador", "Computer name"), Environment.MachineName);
+        g.Add(L("Usuário", "User"), Environment.UserName);
+        var up = TimeSpan.FromMilliseconds(Environment.TickCount64);
+        try { up = TimeSpan.FromSeconds(double.Parse((Platform.Linux.LinuxSensorProvider.Read("/proc/uptime") ?? "0").Split(' ')[0], System.Globalization.CultureInfo.InvariantCulture)); } catch { }
+        g.Add(L("Tempo ligado (uptime)", "Uptime"), Fmt.Duration(up));
+        g.Add(L("Ligado desde", "Up since"), (DateTime.Now - up).ToString("g", Fmt.Culture));
+        g.Add(L("Idioma do sistema", "System language"), Environment.GetEnvironmentVariable("LANG") ?? System.Globalization.CultureInfo.InstalledUICulture.DisplayName);
+        g.Add(L("Pulso executando como root", "Pulso running as root"), Fmt.YesNo(Platform.OS.Current.IsElevated));
+        return p;
+    }
+
+    public static Task<InfoPage> OsAsync() => OperatingSystem.IsLinux() ? Task.Run(LinuxOs) : Task.Run(WindowsOs);
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    static InfoPage WindowsOs()
     {
         var p = new InfoPage { Title = L("Sistema operacional", "Operating system") };
         var g = p.Group("Windows");
@@ -317,5 +436,5 @@ public static class InfoPages
         catch { }
         g.Add(L("Pulso executando como administrador", "Pulso running as administrator"), Fmt.YesNo(Native.IsAdmin));
         return p;
-    });
+    }
 }

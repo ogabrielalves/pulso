@@ -1,6 +1,11 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using System.Diagnostics;
-using System.Windows;
-using System.Windows.Controls;
 using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Features;
@@ -39,7 +44,7 @@ public sealed class MonitorPage : PageBase
         recContent.Children.Add(_recText);
         _rec.Content = recContent;
         _rec.Click += (_, _) => { if (CsvLogger.Active) { CsvLogger.Stop(); OpenLogFolder(); } else CsvLogger.Start(); };
-        CsvLogger.StateChanged += () => Dispatcher.BeginInvoke(UpdateRec);
+        CsvLogger.StateChanged += () => Dispatcher.UIThread.Post(UpdateRec);
         UpdateRec();
 
         var reset = Ui.Button(Loc.T("Zerar estatísticas", "Reset statistics"), () => SensorHub.Instance.ResetStats());
@@ -203,10 +208,10 @@ public sealed class MonitorPage : PageBase
             var text = new TextBlock { FontSize = 13, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
             text.SetResourceReference(TextBlock.ForegroundProperty, "Text");
             text.Inlines.Add(Loc.T("Notificar se ", "Notify if "));
-            text.Inlines.Add(new System.Windows.Documents.Run(m.FullLabel) { FontWeight = FontWeights.Bold });
+            text.Inlines.Add(new Avalonia.Controls.Documents.Run(m.FullLabel) { FontWeight = FontWeights.Bold });
             text.Inlines.Add(Loc.T(" passar de ", " goes above "));
-            var v = new System.Windows.Documents.Run(Fmt.Value(rule.Threshold, m.Unit)) { FontWeight = FontWeights.Bold, FontFamily = MonoFont };
-            v.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "Accent");
+            var v = new Avalonia.Controls.Documents.Run(Fmt.Value(rule.Threshold, m.Unit)) { FontWeight = FontWeights.Bold, FontFamily = MonoFont };
+            v.SetResourceReference(Avalonia.Controls.Documents.TextElement.ForegroundProperty, "Accent");
             text.Inlines.Add(v);
             var r = rule;
             var tog = Toggle(rule.Enabled, on => { r.Enabled = on; Settings.Save(); });
@@ -282,8 +287,8 @@ public sealed class MonitorPage : PageBase
                 var t = new TextBlock { FontSize = 11, TextAlignment = al };
                 t.SetResourceReference(TextBlock.ForegroundProperty, "TextMuted");
                 t.Inlines.Add(label + " ");
-                var v = new System.Windows.Documents.Run("—") { FontFamily = MonoFont, FontWeight = FontWeights.Medium };
-                v.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "Text2");
+                var v = new Avalonia.Controls.Documents.Run("—") { FontFamily = MonoFont, FontWeight = FontWeights.Medium };
+                v.SetResourceReference(Avalonia.Controls.Documents.TextElement.ForegroundProperty, "Text2");
                 t.Inlines.Add(v);
                 t.Tag = v;
                 Grid.SetColumn(t, col);
@@ -303,9 +308,9 @@ public sealed class MonitorPage : PageBase
         {
             var st = SensorHub.Instance.GetStats(_m.Id);
             _val.Text = Fmt.Value(_m.Get(s), _m.Unit, true);
-            ((System.Windows.Documents.Run)_min.Tag).Text = Fmt.Value(st?.MinV, _m.Unit, true);
-            ((System.Windows.Documents.Run)_avg.Tag).Text = Fmt.Value(st?.Avg, _m.Unit, true);
-            ((System.Windows.Documents.Run)_max.Tag).Text = Fmt.Value(st?.MaxV, _m.Unit, true);
+            ((Avalonia.Controls.Documents.Run)_min.Tag).Text = Fmt.Value(st?.MinV, _m.Unit, true);
+            ((Avalonia.Controls.Documents.Run)_avg.Tag).Text = Fmt.Value(st?.Avg, _m.Unit, true);
+            ((Avalonia.Controls.Documents.Run)_max.Tag).Text = Fmt.Value(st?.MaxV, _m.Unit, true);
             _chart.Refresh();
         }
     }

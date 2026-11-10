@@ -1,5 +1,10 @@
-using System.Windows;
-using System.Windows.Controls;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Pulso.Bench;
 using Pulso.Controls;
 using Pulso.Core;
@@ -30,7 +35,8 @@ public sealed class StressPage : PageBase
         _startBtn.Click += (_, _) => Toggle();
 
         _cCpu = Tick(Loc.T("Processador", "Processor"), true);
-        _cGpu = Tick(Loc.T("Placa de vídeo", "Graphics card"), true);
+        _cGpu = Tick(Loc.T("Placa de vídeo", "Graphics card"), StressEngine.GpuStress != null);
+        if (StressEngine.GpuStress == null) { _cGpu.IsVisible = false; }
         _cRam = Tick(Loc.T("Memória RAM", "Memory (RAM)"), false);
 
         var durs = new WrapPanel();
@@ -54,7 +60,7 @@ public sealed class StressPage : PageBase
         var mins = Label(Loc.T("minutos", "minutes"));
         mins.VerticalAlignment = VerticalAlignment.Center; mins.Margin = new Thickness(8, 0, 0, 0);
         customRow.Children.Add(mins);
-        customRow.SetBinding(VisibilityProperty, new System.Windows.Data.Binding(nameof(Visibility)) { Source = _custom });
+        customRow.Bind(IsVisibleProperty, _custom.GetObservable(IsVisibleProperty));
 
         var limHead = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
         limHead.Children.Add(Label(Loc.T("Limite de segurança", "Safety limit")));
@@ -117,8 +123,8 @@ public sealed class StressPage : PageBase
 
         Content = Scroll(new Stack(18, Header(_eyebrow, Loc.T("Teste de estresse", "Stress test"), _startBtn), grid));
 
-        Action tick = () => Dispatcher.BeginInvoke(OnTick);
-        Action<StressReport> fin = r => Dispatcher.BeginInvoke(() => { UpdateIdle(); RenderReport(r); });
+        Action tick = () => Dispatcher.UIThread.Post(OnTick);
+        Action<StressReport> fin = r => Dispatcher.UIThread.Post(() => { UpdateIdle(); RenderReport(r); });
         Loaded += (_, _) =>
         {
             Engine.Tick += tick;
@@ -132,7 +138,7 @@ public sealed class StressPage : PageBase
     static CheckBox Tick(string text, bool on)
     {
         var c = new CheckBox { Content = text, IsChecked = on };
-        c.SetResourceReference(StyleProperty, "Tick");
+        c.Classes.Add("tick");
         return c;
     }
 
@@ -183,7 +189,7 @@ public sealed class StressPage : PageBase
                               $"Automatic stop if the CPU exceeds {Fmt.Value(cfg.StressCpuLimit, Unit.Temp)} or the GPU {Fmt.Value(cfg.StressGpuLimit, Unit.Temp)}");
         bool on = Engine.Running;
         _startBtn.Content = on ? Loc.T("Parar agora", "Stop now") : Loc.T("Iniciar teste", "Start test");
-        _startBtn.SetResourceReference(StyleProperty, on ? "DangerPill" : "PrimaryPill");
+        _startBtn.Classes.Set("dangerpill", on); _startBtn.Classes.Set("primarypill", !on);
         foreach (var c in new[] { _cCpu, _cGpu, _cRam }) c.IsEnabled = !on;
         if (!on)
         {
@@ -255,8 +261,8 @@ public sealed class StressPage : PageBase
             var t = new TextBlock { FontSize = 12.5, Margin = new Thickness(0, 0, 18, 6) };
             t.SetResourceReference(TextBlock.ForegroundProperty, "Text3");
             t.Inlines.Add(k + " ");
-            var b = new System.Windows.Documents.Run(v) { FontWeight = FontWeights.Bold };
-            b.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "Text");
+            var b = new Avalonia.Controls.Documents.Run(v) { FontWeight = FontWeights.Bold };
+            b.SetResourceReference(Avalonia.Controls.Documents.TextElement.ForegroundProperty, "Text");
             t.Inlines.Add(b);
             details.Children.Add(t);
         }

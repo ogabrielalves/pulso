@@ -1,6 +1,11 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using System.Text;
-using System.Windows;
-using System.Windows.Controls;
 using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Features;
@@ -118,13 +123,13 @@ public sealed class MaintenancePage : PageBase
         var headStatus = new Stack(6, _runAllStatus, _reportLink);
         Content = Scroll(new Stack(18,
             Header(Loc.T("Verificação, reparo e limpeza com as ferramentas do Windows", "Check, repair and cleanup with Windows' own tools"), Loc.T("Reparo e limpeza", "Repair & cleanup"), _runAll),
-            Native.IsAdmin ? null : Banner(Loc.T("Tudo aqui precisa de administrador. Reabra o Pulso e aceite o pedido do Windows.", "Everything here requires administrator rights. Reopen Pulso and accept the Windows prompt.")),
+            Pulso.Platform.OS.Current.IsElevated ? null : Banner(Loc.T("Tudo aqui precisa de administrador. Reabra o Pulso e aceite o pedido do Windows.", "Everything here requires administrator rights. Reopen Pulso and accept the Windows prompt.")),
             headStatus,
             Cols(18, new[] { 1.0, 1.0 },
                 new Stack(18, repairCard, diskCard, optCard),
                 new Stack(18, cleanCard, netCard, ramCard))));
         _runAllStatus.Visibility = Visibility.Collapsed;
-        foreach (var b in new[] { _repair.Button, _clean.Button, _disk.Button, _opt.Button, _dns.Button, _net.Button, _runAll }) b.IsEnabled = Native.IsAdmin;
+        foreach (var b in new[] { _repair.Button, _clean.Button, _disk.Button, _opt.Button, _dns.Button, _net.Button, _runAll }) b.IsEnabled = Pulso.Platform.OS.Current.IsElevated;
     }
 
     static Border Section(string title, string desc, UIElement body) =>
@@ -162,9 +167,8 @@ public sealed class MaintenancePage : PageBase
             size.Margin = new Thickness(12, 0, 0, 0);
             var content = new Stack(2, Text(it.Name, 13, FontWeights.SemiBold), Text(it.Desc, 11.5, null, "TextMuted", wrap: true)) { MaxWidth = 420 };
             var box = new CheckBox { Content = content, IsChecked = it.Default, HorizontalAlignment = HorizontalAlignment.Stretch };
-            box.SetResourceReference(StyleProperty, "Tick");
-            box.Checked += (_, _) => UpdateCleanTotal();
-            box.Unchecked += (_, _) => UpdateCleanTotal();
+            box.Classes.Add("tick");
+            box.IsCheckedChanged += (_, _) => UpdateCleanTotal();
             var dock = new DockPanel();
             DockPanel.SetDock(size, Dock.Right);
             dock.Children.Add(size);
@@ -242,11 +246,11 @@ public sealed class MaintenancePage : PageBase
     {
         _busy = false;
         _cts = null;
-        foreach (var b in new[] { _repair, _clean, _disk, _opt, _dns, _net }) b.Button.IsEnabled = Native.IsAdmin;
-        _runAll.IsEnabled = Native.IsAdmin;
+        foreach (var b in new[] { _repair, _clean, _disk, _opt, _dns, _net }) b.Button.IsEnabled = Pulso.Platform.OS.Current.IsElevated;
+        _runAll.IsEnabled = Pulso.Platform.OS.Current.IsElevated;
     }
 
-    Maintenance.Report Reporter(TaskBox box) => (p, t) => Dispatcher.BeginInvoke(() => box.Progress(p, t));
+    Maintenance.Report Reporter(TaskBox box) => (p, t) => Dispatcher.UIThread.Post(() => box.Progress(p, t));
 
     async Task<Maintenance.Outcome> Guard(TaskBox box, Func<CancellationToken, Task<Maintenance.Outcome>> work, string ctx)
     {
@@ -304,7 +308,7 @@ public sealed class MaintenancePage : PageBase
             var o = await Maintenance.ScanDiskAsync(v, Reporter(_disk), ct);
             parts.Add(o);
             if (!o.Ok && o.Summary.Contains(v.Letter) && _repairDiskBtns.TryGetValue(v.Letter, out var b))
-                await Dispatcher.InvokeAsync(() => b.Visibility = Visibility.Visible);
+                await Dispatcher.UIThread.InvokeAsync(() => { b.Visibility = Visibility.Visible; });
         }
         return Merge(parts);
     }

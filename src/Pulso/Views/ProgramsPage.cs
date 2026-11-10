@@ -1,5 +1,10 @@
-using System.Windows;
-using System.Windows.Controls;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Features;
@@ -225,7 +230,7 @@ public sealed class ProgramsPage : PageBase
                 row.status.SetResourceReference(TextBlock.ForegroundProperty, "Text2");
             }
             // não cancela no meio de uma instalação: só impede a próxima
-            var (success, msg) = await Programs.UpgradeAsync(u, line => Dispatcher.BeginInvoke(() =>
+            var (success, msg) = await Programs.UpgradeAsync(u, line => Dispatcher.UIThread.Post(() =>
             {
                 if (row.status != null && line.Length < 120) row.status.Text = line;
             }));

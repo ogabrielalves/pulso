@@ -1,19 +1,30 @@
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
-using System.Windows.Media;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Shapes;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Pulso.Info;
 
 namespace Pulso.Controls;
 
-/// <summary>Painel que empilha filhos com espaçamento fixo (equivale ao "gap" do CSS).</summary>
+/// <summary>
+/// Painel que empilha filhos com espaçamento fixo (equivale ao "gap" do CSS). Diferente do StackPanel, nunca
+/// dá ao filho mais largura que a disponível: o excesso é cortado/truncado em vez de empurrar o cartão para fora.
+/// </summary>
 public sealed class Stack : Panel
 {
-    public double Spacing { get; set; } = 18;
-    public Orientation Orientation { get; set; } = Orientation.Vertical;
+    public static readonly StyledProperty<double> SpacingProperty = AvaloniaProperty.Register<Stack, double>(nameof(Spacing), 18);
+    public static readonly StyledProperty<Orientation> OrientationProperty = AvaloniaProperty.Register<Stack, Orientation>(nameof(Orientation), Orientation.Vertical);
+
+    static Stack() { AffectsMeasure<Stack>(SpacingProperty, OrientationProperty); }
+
+    public double Spacing { get => GetValue(SpacingProperty); set => SetValue(SpacingProperty, value); }
+    public Orientation Orientation { get => GetValue(OrientationProperty); set => SetValue(OrientationProperty, value); }
 
     public Stack() { }
-    public Stack(double spacing, params UIElement?[] children)
+    public Stack(double spacing, params Control?[] children)
     {
         Spacing = spacing;
         foreach (var c in children) if (c != null) Children.Add(c);
@@ -24,9 +35,9 @@ public sealed class Stack : Panel
         double main = 0, cross = 0;
         int visible = 0;
         bool v = Orientation == Orientation.Vertical;
-        foreach (UIElement c in InternalChildren)
+        foreach (var c in Children)
         {
-            if (c.Visibility == Visibility.Collapsed) continue;
+            if (!c.IsVisible) continue;
             c.Measure(v ? new Size(available.Width, double.PositiveInfinity) : new Size(double.PositiveInfinity, available.Height));
             var d = c.DesiredSize;
             main += v ? d.Height : d.Width;
@@ -34,6 +45,7 @@ public sealed class Stack : Panel
             visible++;
         }
         main += Math.Max(0, visible - 1) * Spacing;
+        if (v && !double.IsInfinity(available.Width)) cross = Math.Min(cross, available.Width);
         return v ? new Size(cross, main) : new Size(main, cross);
     }
 
@@ -41,9 +53,9 @@ public sealed class Stack : Panel
     {
         double pos = 0;
         bool v = Orientation == Orientation.Vertical;
-        foreach (UIElement c in InternalChildren)
+        foreach (var c in Children)
         {
-            if (c.Visibility == Visibility.Collapsed) continue;
+            if (!c.IsVisible) continue;
             var d = c.DesiredSize;
             if (v) { c.Arrange(new Rect(0, pos, final.Width, d.Height)); pos += d.Height + Spacing; }
             else { c.Arrange(new Rect(pos, 0, d.Width, final.Height)); pos += d.Width + Spacing; }
@@ -55,16 +67,10 @@ public sealed class Stack : Panel
 /// <summary>Fábrica dos blocos visuais do design (cartões, linhas, blocos de estatística…).</summary>
 public static class Ui
 {
-    public static FontFamily UiFont => (FontFamily)Application.Current.FindResource("UiFont");
-    public static FontFamily MonoFont => (FontFamily)Application.Current.FindResource("MonoFont");
+    public static FontFamily UiFont => (FontFamily)Application.Current!.FindResource("UiFont")!;
+    public static FontFamily MonoFont => (FontFamily)Application.Current!.FindResource("MonoFont")!;
 
-    public static T Res<T>(this T e, DependencyProperty p, string key) where T : FrameworkElement
-    {
-        e.SetResourceReference(p, key);
-        return e;
-    }
-
-    public static Brush Brush(string key) => Application.Current.TryFindResource(key) as Brush ?? Brushes.Gray;
+    public static IBrush Brush(string key) => Compat.Brush(key);
 
     public static string HealthKey(Health h) => h switch
     {
@@ -110,12 +116,11 @@ public static class Ui
         t.VerticalAlignment = VerticalAlignment.Center;
         var b = new Border
         {
-            Width = 15, Height = 15, CornerRadius = new CornerRadius(8), Child = t, Cursor = System.Windows.Input.Cursors.Help,
+            Width = 15, Height = 15, CornerRadius = new CornerRadius(8), Child = t, Cursor = new Cursor(StandardCursorType.Help),
             Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
-            ToolTip = new TextBlock { Text = tip, TextWrapping = TextWrapping.Wrap },
         }.Res(Border.BackgroundProperty, "Help");
-        ToolTipService.SetInitialShowDelay(b, 120);
-        ToolTipService.SetShowDuration(b, 60000);
+        ToolTip.SetTip(b, new TextBlock { Text = tip, TextWrapping = TextWrapping.Wrap, MaxWidth = 340 });
+        ToolTip.SetShowDelay(b, 120);
         return b;
     }
 
@@ -188,8 +193,8 @@ public static class Ui
         var b = new Border { Child = dock, CornerRadius = new CornerRadius(14), Padding = new Thickness(16, 14, 16, 14) }.Res(Border.BackgroundProperty, crit ? "CritBg" : "WarnBg");
         if (onClick != null)
         {
-            b.Cursor = System.Windows.Input.Cursors.Hand;
-            b.MouseLeftButtonUp += (_, _) => onClick();
+            b.Cursor = new Cursor(StandardCursorType.Hand);
+            b.PointerReleased += (_, _) => onClick();
         }
         return b;
     }
@@ -281,8 +286,8 @@ public static class Ui
     public static RadioButton Segment(string text, string group, bool isChecked, Action onChecked)
     {
         var r = new RadioButton { Content = text, GroupName = group, IsChecked = isChecked };
-        r.SetResourceReference(FrameworkElement.StyleProperty, "Segment");
-        r.Checked += (_, _) => onChecked();
+        r.Classes.Add("segment");
+        r.IsCheckedChanged += (_, _) => { if (r.IsChecked == true) onChecked(); };
         return r;
     }
 
@@ -304,7 +309,7 @@ public static class Ui
     public static Button Button(string text, Action onClick, string? style = null)
     {
         var b = new Button { Content = text };
-        if (style != null) b.SetResourceReference(FrameworkElement.StyleProperty, style);
+        if (style != null) b.Classes.Add(style switch { "LinkButton" => "link", "RowButton" => "row", "StepButton" => "step", _ => style.ToLowerInvariant() });
         b.Click += (_, _) => onClick();
         return b;
     }
@@ -321,11 +326,10 @@ public static class Ui
         return new Border { Child = dock, BorderThickness = new Thickness(0, first ? 0 : 1, 0, 0), Padding = new Thickness(0, 16, 0, 16) }.Res(Border.BorderBrushProperty, "Divider");
     }
 
-    public static CheckBox Toggle(bool on, Action<bool> changed, string? text = null)
+    public static ToggleSwitch Toggle(bool on, Action<bool> changed, string? text = null)
     {
-        var c = new CheckBox { IsChecked = on, Content = text };
-        c.Checked += (_, _) => changed(true);
-        c.Unchecked += (_, _) => changed(false);
+        var c = new ToggleSwitch { IsChecked = on, OnContent = text, OffContent = text };
+        c.IsCheckedChanged += (_, _) => changed(c.IsChecked == true);
         return c;
     }
 
@@ -340,5 +344,5 @@ public static class Ui
     }
 
     public static ScrollViewer Scroll(UIElement content, Thickness? padding = null) =>
-        new() { Content = content, Padding = padding ?? new Thickness(28, 24, 28, 32), VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Focusable = false };
+        new() { Content = content, Padding = padding ?? new Thickness(28, 24, 28, 32), VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Focusable = false, BringIntoViewOnFocusChange = false };
 }

@@ -40,7 +40,7 @@ public sealed class AppSettings
     public bool StartWithWindows { get; set; }
     public bool MinimizeToTray { get; set; } = true;
     public bool CloseToTray { get; set; } = true;
-    public bool RequestAdmin { get; set; } = true;
+    public bool RequestAdmin { get; set; } = OperatingSystem.IsWindows();
 
     public bool AlertsEnabled { get; set; } = true;
     public int AlertCooldownSec { get; set; } = 120;

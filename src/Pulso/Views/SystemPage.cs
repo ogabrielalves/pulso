@@ -1,6 +1,10 @@
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Threading;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Features;
@@ -34,8 +38,8 @@ public sealed class SystemPage : PageBase
         foreach (var fmt in new[] { "TXT", "HTML", "PDF" })
         {
             string f = fmt;
-            var b = Ui.Button(fmt, () => ReportExporter.Export(f, _pages, Loc.T("Sistema — ", "System — ") + _title.Text));
-            b.Background = System.Windows.Media.Brushes.Transparent;
+            var b = Ui.Button(fmt, () => ReportExporter.Export(this, f, _pages, Loc.T("Sistema — ", "System — ") + _title.Text));
+            b.Background = Brushes.Transparent;
             b.Padding = new Thickness(10, 9, f == "PDF" ? 14 : 10, 9);
             export.Children.Add(b);
         }
@@ -306,8 +310,8 @@ public sealed class SystemPage : PageBase
     static Border Dashed(Border inner)
     {
         // Borda tracejada como no design (slots vazios).
-        var rect = new System.Windows.Shapes.Rectangle { RadiusX = 14, RadiusY = 14, StrokeThickness = 1, StrokeDashArray = new System.Windows.Media.DoubleCollection { 4, 3 } };
-        rect.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "BorderStrong");
+        var rect = new Avalonia.Controls.Shapes.Rectangle { RadiusX = 14, RadiusY = 14, StrokeThickness = 1, StrokeDashArray = new Avalonia.Collections.AvaloniaList<double> { 4, 3 } };
+        rect.SetResourceReference(Avalonia.Controls.Shapes.Shape.StrokeProperty, "BorderStrong");
         inner.BorderThickness = new Thickness(0);
         var g = new Grid();
         g.Children.Add(rect);
@@ -345,8 +349,8 @@ public sealed class SystemPage : PageBase
         if (_pages.Count == 0) return;
         try
         {
-            Clipboard.SetText(string.Join("\r\n\r\n", _pages.Select(p => p.ToText())));
-            App.Current.Tray?.Notify("Pulso", Loc.T("Informações copiadas para a área de transferência.", "Information copied to clipboard."), false);
+            _ = Dialogs.CopyAsync(this, string.Join("\r\n\r\n", _pages.Select(p => p.ToText())));
+            Notifier.Notify("Pulso", Loc.T("Informações copiadas para a área de transferência.", "Information copied to clipboard."), false);
         }
         catch { }
     }

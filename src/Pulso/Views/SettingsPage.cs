@@ -1,6 +1,11 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using System.Diagnostics;
-using System.Windows;
-using System.Windows.Controls;
 using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Features;
@@ -24,7 +29,7 @@ public sealed class SettingsPage : PageBase
         {
             S.StartWithWindows = on;
             Settings.Save();
-            if (!Startup.Set(on)) App.Current.Tray?.Notify("Pulso", Loc.T("Não foi possível alterar a inicialização com o Windows.", "Could not change start-with-Windows."));
+            if (!Startup.Set(on)) Notifier.Notify("Pulso", Loc.T("Não foi possível alterar a inicialização com o sistema.", "Could not change start-with-system."));
         });
         var tray = Toggle(S.MinimizeToTray, on => { S.MinimizeToTray = on; Settings.Save(); });
         var close = Toggle(S.CloseToTray, on => { S.CloseToTray = on; Settings.Save(); });
@@ -70,26 +75,39 @@ public sealed class SettingsPage : PageBase
         };
 
         var general = Card(new Stack(0,
-            SettingRow(Loc.T("Iniciar com o Windows", "Start with Windows"), Loc.T("Abre minimizado na bandeja do sistema", "Opens minimized in the system tray"), startup, first: true),
-            SettingRow(Loc.T("Minimizar para a bandeja", "Minimize to tray"), Loc.T("Ao minimizar, a janela fecha e o Pulso continua no relógio do Windows usando menos memória", "When minimized, the window closes and Pulso keeps running in the tray using less memory"), tray),
+            SettingRow(Loc.T("Iniciar com o sistema", "Start with the system"), Loc.T("Abre minimizado na bandeja do sistema", "Opens minimized in the system tray"), startup, first: true),
+            SettingRow(Loc.T("Minimizar para a bandeja", "Minimize to tray"), Loc.T("Ao minimizar, a janela fecha e o Pulso continua na bandeja usando menos memória", "When minimized, the window closes and Pulso keeps running in the tray using less memory"), tray),
             SettingRow(Loc.T("Fechar para a bandeja", "Close to tray"), Loc.T("O botão ✕ mantém o Pulso rodando (alertas e overlay continuam). Para sair, use o ícone da bandeja.", "The ✕ button keeps Pulso running (alerts and overlay keep working). To quit, use the tray icon."), close),
             SettingRow(Loc.T("Unidade de temperatura", "Temperature unit"), null, units),
             SettingRow(Loc.T("Intervalo de leitura dos sensores", "Sensor reading interval"), Loc.T("Intervalos maiores consomem menos CPU", "Longer intervals use less CPU"), interval),
             SettingRow(Loc.T("Intervalo com a janela fechada", "Interval with window closed"), Loc.T("Usado na bandeja quando nada precisa de leitura rápida (overlay, log e testes mantêm o ritmo normal)", "Used in the tray when nothing needs fast readings (overlay, logging and tests keep the normal pace)"), minimized),
             SettingRow(Loc.T("Limites de alerta de temperatura", "Temperature alert limits"), Loc.T("Outros alertas ficam na aba Monitoramento", "Other alerts are in the Monitoring tab"), limits),
-            SettingRow(Loc.T("Notificações de alerta", "Alert notifications"), Loc.T("Aviso do Windows quando um limite é ultrapassado", "Windows notification when a limit is exceeded"), notify),
+            SettingRow(Loc.T("Notificações de alerta", "Alert notifications"), Loc.T("Aviso do sistema quando um limite é ultrapassado", "System notification when a limit is exceeded"), notify),
             SettingRow(Loc.T("Tema", "Theme"), null, theme),
             SettingRow(Loc.T("Idioma", "Language"), null, new Stack(6, lang, _langNote))), 22, 6);
 
         // --- sensores
         _pawnBtn = Ui.Button(Loc.T("Instalar driver", "Install driver"), InstallPawn, "Primary");
         _pawnBtn.Padding = new Thickness(16, 9, 16, 9);
-        var admin = Toggle(S.RequestAdmin, on => { S.RequestAdmin = on; Settings.Save(); });
-        var adminState = Text(Native.IsAdmin ? Loc.T("Rodando como administrador ✓", "Running as administrator ✓") : Loc.T("Rodando sem administrador — reabra o Pulso e aceite o pedido do Windows", "Running without administrator — reopen Pulso and accept the Windows prompt"), 12, null, Native.IsAdmin ? "Good" : "Warn", wrap: true);
-        var sensors = Card(new Stack(0,
-            SettingRow(Loc.T("Driver de sensores (PawnIO)", "Sensor driver (PawnIO)"), null, new Stack(6, _pawnBtn, _pawnStatus) { Width = 260 }, first: true),
-            SettingRow(Loc.T("Pedir permissão de administrador", "Ask for administrator rights"), Loc.T("Necessário para temperaturas, SMART dos discos, timings da RAM e contador de FPS", "Required for temperatures, disk SMART, RAM timings and the FPS counter"), new Stack(6, admin, adminState) { Width = 260 })), 22, 6);
-        UpdatePawn();
+        Border sensors;
+        if (OperatingSystem.IsWindows())
+        {
+            var admin = Toggle(S.RequestAdmin, on => { S.RequestAdmin = on; Settings.Save(); });
+            var adminState = Text(Pulso.Platform.OS.Current.IsElevated ? Loc.T("Rodando como administrador ✓", "Running as administrator ✓") : Loc.T("Rodando sem administrador — reabra o Pulso e aceite o pedido do Windows", "Running without administrator — reopen Pulso and accept the Windows prompt"), 12, null, Pulso.Platform.OS.Current.IsElevated ? "Good" : "Warn", wrap: true);
+            sensors = Card(new Stack(0,
+                SettingRow(Loc.T("Driver de sensores (PawnIO)", "Sensor driver (PawnIO)"), null, new Stack(6, _pawnBtn, _pawnStatus) { Width = 260 }, first: true),
+                SettingRow(Loc.T("Pedir permissão de administrador", "Ask for administrator rights"), Loc.T("Necessário para temperaturas, SMART dos discos, timings da RAM e contador de FPS", "Required for temperatures, disk SMART, RAM timings and the FPS counter"), new Stack(6, admin, adminState) { Width = 260 })), 22, 6);
+        }
+        else
+        {
+            bool root = Pulso.Platform.OS.Current.IsElevated;
+            var rootState = Text(root ? Loc.T("Rodando como root ✓", "Running as root ✓") : Loc.T("Rodando sem root", "Running without root"), 12.5, FontWeights.SemiBold, root ? "Good" : "Warn", wrap: true);
+            string how = Loc.T("Temperaturas, uso, clocks, memória e rede funcionam sem privilégios. Com root o Pulso também lê o consumo da CPU (RAPL), o SMART dos discos (precisa do smartmontools) e os módulos de memória (SMBIOS). Para isso reabra o Pulso como root.",
+                               "Temperatures, usage, clocks, memory and network work without privileges. With root, Pulso also reads CPU power (RAPL), disk SMART (needs smartmontools) and memory modules (SMBIOS). To get that, reopen Pulso as root.");
+            sensors = Card(new Stack(0,
+                SettingRow(Loc.T("Permissões", "Permissions"), how, root ? rootState : new Stack(8, rootState, Ui.Button(Loc.T("Reabrir como root", "Reopen as root"), () => App.Current.RelaunchAsRoot(), "Primary")), first: true)), 22, 6);
+        }
+        if (OperatingSystem.IsWindows()) UpdatePawn();
 
         // --- pastas e sobre
         var folders = new StackPanel { Orientation = Orientation.Horizontal };
@@ -99,9 +117,9 @@ public sealed class SettingsPage : PageBase
         var data = Ui.Button(Loc.T("Dados do app", "App data"), () => Open(Paths.AppData)); data.Margin = new Thickness(8, 0, 0, 0);
         folders.Children.Add(data);
         var about = Card(new Stack(0,
-            SettingRow(Loc.T("Pastas", "Folders"), Loc.T("Logs em Documentos\\Pulso; histórico e configurações em %AppData%\\Pulso", "Logs in Documents\\Pulso; history and settings in %AppData%\\Pulso"), folders, first: true),
-            SettingRow(Loc.T("Sobre", "About"), Loc.T($"Pulso {typeof(App).Assembly.GetName().Version?.ToString(3)} · sensores via LibreHardwareMonitor (MPL-2.0) · fontes Manrope e JetBrains Mono (OFL)",
-                                                     $"Pulso {typeof(App).Assembly.GetName().Version?.ToString(3)} · sensors via LibreHardwareMonitor (MPL-2.0) · Manrope and JetBrains Mono fonts (OFL)"), new Border())), 22, 6);
+            SettingRow(Loc.T("Pastas", "Folders"), OperatingSystem.IsWindows() ? Loc.T("Logs em Documentos\\Pulso; histórico e configurações em %AppData%\\Pulso", "Logs in Documents\\Pulso; history and settings in %AppData%\\Pulso") : Loc.T("Logs e relatórios em ~/Documents/Pulso; histórico e configurações em ~/.config/Pulso", "Logs and reports in ~/Documents/Pulso; history and settings in ~/.config/Pulso"), folders, first: true),
+            SettingRow(Loc.T("Sobre", "About"), Loc.T($"Pulso {typeof(App).Assembly.GetName().Version?.ToString(3)} · sensores via LibreHardwareMonitor (Windows, MPL-2.0) e /sys (Linux) · fontes Manrope e JetBrains Mono (OFL)",
+                                                     $"Pulso {typeof(App).Assembly.GetName().Version?.ToString(3)} · sensors via LibreHardwareMonitor (Windows, MPL-2.0) and /sys (Linux) · Manrope and JetBrains Mono fonts (OFL)"), new Border())), 22, 6);
 
         var content = new Stack(18, Header(Loc.T("Preferências gerais do Pulso", "General Pulso preferences"), Loc.T("Configurações", "Settings")),
             general, Ui.Title(Loc.T("Sensores", "Sensors")), sensors, about) { MaxWidth = 860, HorizontalAlignment = HorizontalAlignment.Left };
@@ -111,7 +129,7 @@ public sealed class SettingsPage : PageBase
 
     static void Open(string path)
     {
-        try { Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true }); } catch { }
+        Platform.Shell.Open(path);
     }
 
     static void SetInterval(int ms)

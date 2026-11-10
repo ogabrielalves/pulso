@@ -1,5 +1,10 @@
-using System.Windows;
-using System.Windows.Controls;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Pulso.Controls;
 using Pulso.Core;
 using Pulso.Features;
@@ -18,7 +23,7 @@ public sealed class DriversPage : PageBase
     readonly TextBlock _hiddenNote = Text("", 12, null, "TextMuted", wrap: true);
     readonly Stack _probList = new(0), _gpuList = new(0), _histList = new(0);
     readonly Grid _table = new();
-    readonly CheckBox _showMs;
+    readonly ToggleSwitch _showMs;
     readonly Dictionary<Drivers.Update, (CheckBox box, TextBlock status)> _rows = new();
     List<Drivers.Installed> _installed = new();
     bool _loaded, _busy, _rebootPending;
@@ -91,7 +96,7 @@ public sealed class DriversPage : PageBase
         _problems.SetResourceReference(TextBlock.ForegroundProperty, probs.Any(p => p.Code != 22) ? "Warn" : "Good");
 
         _banners.Children.Clear();
-        if (!Native.IsAdmin)
+        if (!Pulso.Platform.OS.Current.IsElevated)
             _banners.Children.Add(Banner(Loc.T("Sem administrador o Pulso consegue procurar atualizações, mas não instalar nem reverter drivers. Reabra o app e aceite o pedido do Windows.", "Without administrator rights Pulso can check for updates but cannot install or roll back drivers. Reopen the app and accept the Windows prompt.")));
         if (laptop)
             _banners.Children.Add(Banner(Loc.T("Notebook detectado: drivers de áudio, touchpad, teclas de atalho e gerenciamento de energia costumam ser personalizados pelo fabricante. Para esses, prefira o site ou app do fabricante do notebook.", "Laptop detected: audio, touchpad, hotkey and power management drivers are often customized by the manufacturer. For those, prefer the laptop maker's website or app."), Health.Warning, false));
@@ -162,8 +167,8 @@ public sealed class DriversPage : PageBase
             u.Size > 0 ? Fmt.Bytes(u.Size) : null,
         }.Where(x => !string.IsNullOrEmpty(x)));
         var content = new Stack(3, Text(u.DisplayName, 13.5, FontWeights.SemiBold), Text(details, 12, null, "TextMuted"));
-        var box = new CheckBox { Content = content, IsChecked = true, IsEnabled = Native.IsAdmin, ToolTip = u.Title };
-        box.SetResourceReference(StyleProperty, "Tick");
+        var box = new CheckBox { Content = content, IsChecked = true, IsEnabled = Pulso.Platform.OS.Current.IsElevated, ToolTip = u.Title };
+        box.Classes.Add("tick");
         box.HorizontalAlignment = HorizontalAlignment.Stretch;
         var status = Text("", 12, FontWeights.SemiBold, "TextMuted");
         status.VerticalAlignment = VerticalAlignment.Center;
@@ -334,7 +339,7 @@ public sealed class DriversPage : PageBase
     async void Revert(Drivers.HistoryEntry h, bool backup)
     {
         if (_busy) return;
-        if (!Native.IsAdmin)
+        if (!Pulso.Platform.OS.Current.IsElevated)
         {
             MessageBox.Show(Window.GetWindow(this)!, Loc.T("Reverter drivers precisa de administrador. Reabra o Pulso e aceite o pedido do Windows.", "Rolling back drivers requires administrator rights. Reopen Pulso and accept the Windows prompt."), "Pulso", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
