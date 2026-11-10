@@ -257,6 +257,18 @@ public partial class App : Application
 
     void SetupTray()
     {
+        // O ícone da bandeja no Linux é criado de forma assíncrona (D-Bus); se a extensão do GNOME falhar,
+        // o erro chega aqui sem passar pelo try/catch. A bandeja é opcional: registra e segue sem ela.
+        Dispatcher.UIThread.UnhandledException += (_, e) =>
+        {
+            if (e.Exception is Tmds.DBus.Protocol.DBusException)
+            {
+                Paths.LogError("Tray.DBus", e.Exception);
+                try { _tray?.Dispose(); } catch { }
+                _tray = null;
+                e.Handled = true;
+            }
+        };
         try
         {
             var menu = new NativeMenu();

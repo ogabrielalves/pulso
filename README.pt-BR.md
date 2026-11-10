@@ -41,7 +41,7 @@ Diagnóstico, monitoramento e teste de hardware para Windows 10/11 e Linux, em u
 |---|---|
 | Windows 11 (64 bits) | ✅ Testado |
 | Windows 10 (64 bits) | ⚠️ Deve funcionar, ainda não testado |
-| Linux (64 bits, desktop X11/Wayland) | ✅ Roda (interface Avalonia). Recursos exclusivos do Windows (reparo DISM/SFC, winget, atualização de drivers, FPS via ETW, PawnIO) não estão disponíveis |
+| Linux (64 bits, desktop X11/Wayland) | ✅ Roda (interface Avalonia). manutenção e atualizações usam as ferramentas da sua distro (veja abaixo); recursos exclusivos do Windows (DISM/SFC, winget, atualização de drivers do Windows, FPS via ETW, PawnIO, inicialização, histórico de travamentos) não estão disponíveis |
 | macOS | ❌ Não suportado |
 
 ## Como rodar
@@ -86,6 +86,9 @@ Observações para Linux:
 - Roda como usuário comum, sem pedir administrador. Alguns sensores e o SMART podem exigir `sudo` ou acesso de leitura a `/sys` e aos dispositivos de disco.
 - "Iniciar com o sistema" cria `~/.config/autostart/pulso.desktop`, que funciona no GNOME, KDE, Xfce e outros desktops freedesktop.
 - Os mesmos parâmetros (`--minimized`, `--page <id>`) funcionam.
+- **Reparo e limpeza** usa as ferramentas da distro: integridade dos pacotes (`debsums -s` / `rpm -Va` / `pacman -Qkk`, no lugar do SFC), saúde dos discos (`smartctl`) e TRIM (`fstrim`), limpeza de lixeira, miniaturas, caches, journal e cache de pacotes, limpar DNS e reiniciar o serviço de rede.
+- **Programas** atualiza pacotes do sistema (apt, dnf, pacman ou zypper), Flatpak, Snap e firmware (`fwupdmgr`), além de drivers NVIDIA/proprietários no Ubuntu (`ubuntu-drivers`). Substitui o winget e a atualização de drivers do Windows.
+- Ações que precisam de administrador pedem a sua senha via `pkexec` (polkit). Ferramentas opcionais: `debsums`, `smartmontools`, `flatpak`, `fwupd`; os botões das que não estiverem instaladas ficam desabilitados, e os botões *Instalar debsums* / *Instalar smartmontools* instalam com um clique.
 
 ## Como compilar
 

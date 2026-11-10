@@ -39,7 +39,7 @@ Hardware diagnostics, monitoring and testing for Windows 10/11 and Linux, in a s
 |---|---|
 | Windows 11 (64-bit) | ✅ Tested |
 | Windows 10 (64-bit) | ⚠️ Expected to work, not tested yet |
-| Linux (64-bit, X11/Wayland desktop) | ✅ Runs (Avalonia UI). Windows-only features (DISM/SFC repair, winget, driver updates, ETW-based FPS, PawnIO) are not available |
+| Linux (64-bit, X11/Wayland desktop) | ✅ Runs (Avalonia UI). maintenance and updates use your distro's tools (see below); Windows-only features (DISM/SFC, winget, Windows driver updates, ETW-based FPS, PawnIO, startup apps, crash history) are not available |
 | macOS | ❌ Not supported |
 
 ## Running
@@ -84,6 +84,9 @@ Notes for Linux:
 - It runs as a normal user; no administrator prompt. Some sensors and SMART data may need `sudo` or read access to `/sys` and the disk devices.
 - "Start with the system" creates `~/.config/autostart/pulso.desktop`, which works on GNOME, KDE, Xfce and other freedesktop desktops.
 - The same command-line options (`--minimized`, `--page <id>`) work.
+- **Repair & cleanup** uses your distro's tools: package integrity (`debsums -s` / `rpm -Va` / `pacman -Qkk`, instead of SFC), drive health (`smartctl`) and TRIM (`fstrim`), cleanup of trash, thumbnails, caches, journal and package cache, DNS flush and network service restart.
+- **Programs** updates system packages (apt, dnf, pacman or zypper), Flatpak, Snap and firmware (`fwupdmgr`), plus NVIDIA/proprietary drivers on Ubuntu (`ubuntu-drivers`). It replaces winget and Windows driver updates.
+- Actions that need administrator ask for your password through `pkexec` (polkit). Optional tools: `debsums`, `smartmontools`, `flatpak`, `fwupd`; buttons for tools that aren't installed are disabled, and *Install debsums* / *Install smartmontools* buttons install them in one click.
 
 ## Building
 

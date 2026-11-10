@@ -52,7 +52,7 @@ public sealed class MainWindow : Window
     };
 
     /// <summary>Telas que só existem no Windows (dependem de WMI, winget, registro, ETW, Direct3D…).</summary>
-    static readonly HashSet<string> WindowsOnly = new() { "drivers", "inicializacao", "travamentos", "reparo", "programas" };
+    static readonly HashSet<string> WindowsOnly = new() { "drivers", "inicializacao", "travamentos" };
 
     static bool IsAvailable(string key) => OperatingSystem.IsWindows() || !WindowsOnly.Contains(key);
 

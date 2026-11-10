@@ -19,6 +19,8 @@ public static class PageFactory
         "inicializacao" when OperatingSystem.IsWindows() => new StartupPage(),
         "reparo" when OperatingSystem.IsWindows() => new MaintenancePage(),
         "programas" when OperatingSystem.IsWindows() => new ProgramsPage(),
+        "reparo" => new LinuxMaintenancePage(LinuxMaintenancePage.Mode.Maintenance),
+        "programas" => new LinuxMaintenancePage(LinuxMaintenancePage.Mode.Updates),
         "travamentos" when OperatingSystem.IsWindows() => new CrashesPage(),
         _ => new SettingsPage(),
     };
